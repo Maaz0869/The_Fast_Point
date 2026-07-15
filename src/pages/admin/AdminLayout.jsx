@@ -35,7 +35,7 @@ export default function AdminLayout() {
     <div className="min-h-screen bg-gray-50 lg:flex">
       {/* Sidebar */}
       <aside
-        className={`fixed inset-y-0 left-0 z-40 w-64 transform bg-charcoal text-white transition-transform lg:static lg:translate-x-0 ${
+        className={`fixed inset-y-0 left-0 z-40 w-64 transform bg-night text-white transition-transform lg:static lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >

@@ -24,7 +24,7 @@ export default function AdminLogin() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-charcoal via-charcoal to-brand-900 p-4">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-night via-night to-brand-900 p-4">
       <div className="w-full max-w-sm">
         <Link to="/" className="mb-6 flex items-center justify-center gap-2 text-white">
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-500 text-lg">

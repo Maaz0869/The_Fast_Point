@@ -2,13 +2,14 @@ import { useState } from 'react'
 import { useStore } from '../../context/StoreContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import Modal from '../../components/Modal.jsx'
-import { rs } from '../../utils/format.js'
+import { rs, hasDiscount, discountPercent } from '../../utils/format.js'
 import { Plus, Trash } from '../../components/Icons.jsx'
 
 const blank = {
   name: '',
   category: 'burgers',
   price: '',
+  salePrice: '',
   description: '',
   image: '',
   bestSeller: false,
@@ -30,15 +31,43 @@ export default function ManageMenu() {
     setEditing(item.id)
   }
 
+  // Read a chosen image file into a base64 data URL so it can be stored inline
+  // (no backend). Works everywhere <img src> is used.
+  const onImageFile = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please choose an image file')
+      return
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      toast.error('Image is too large (max 3 MB)')
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => setForm((f) => ({ ...f, image: reader.result }))
+    reader.readAsDataURL(file)
+    e.target.value = '' // allow re-selecting the same file
+  }
+
   const save = (e) => {
     e.preventDefault()
     if (!form.name.trim() || !form.price) {
       toast.error('Name and price are required')
       return
     }
+    const price = Number(form.price)
+    // Discount price is optional; when given it must be a positive number
+    // below the regular price.
+    const sale = form.salePrice === '' || form.salePrice == null ? null : Number(form.salePrice)
+    if (sale != null && (sale <= 0 || sale >= price)) {
+      toast.error('Discount price must be greater than 0 and less than the price')
+      return
+    }
     const payload = {
       ...form,
-      price: Number(form.price),
+      price,
+      salePrice: sale, // null = no discount
       image:
         form.image ||
         'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=800&q=80',
@@ -116,7 +145,21 @@ export default function ManageMenu() {
                   <td className="px-4 py-3">
                     <span className="chip bg-gray-100 text-charcoal/70">{catName(item.category)}</span>
                   </td>
-                  <td className="px-4 py-3 font-semibold">{rs(item.price)}</td>
+                  <td className="px-4 py-3 font-semibold">
+                    {hasDiscount(item) ? (
+                      <span className="flex items-center gap-2">
+                        <span className="text-green-600">{rs(item.salePrice)}</span>
+                        <span className="text-xs font-normal text-charcoal/40 line-through">
+                          {rs(item.price)}
+                        </span>
+                        <span className="chip bg-green-100 text-green-700">
+                          -{discountPercent(item)}%
+                        </span>
+                      </span>
+                    ) : (
+                      rs(item.price)
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex justify-end gap-2">
                       <button
@@ -148,7 +191,15 @@ export default function ManageMenu() {
               <div className="min-w-0 flex-1">
                 <p className="font-semibold">{item.name}</p>
                 <p className="text-xs text-charcoal/50">
-                  {catName(item.category)} · {rs(item.price)}
+                  {catName(item.category)} ·{' '}
+                  {hasDiscount(item) ? (
+                    <>
+                      <span className="font-semibold text-green-600">{rs(item.salePrice)}</span>{' '}
+                      <span className="line-through">{rs(item.price)}</span>
+                    </>
+                  ) : (
+                    rs(item.price)
+                  )}
                 </p>
                 <div className="mt-2 flex gap-2">
                   <button
@@ -202,7 +253,7 @@ export default function ManageMenu() {
                   placeholder="e.g. Classic Beef Burger"
                 />
               </div>
-              <div>
+              <div className="sm:col-span-2">
                 <label className="label">Category</label>
                 <select
                   className="input"
@@ -227,6 +278,24 @@ export default function ManageMenu() {
                   placeholder="550"
                 />
               </div>
+              <div>
+                <label className="label">
+                  Discount Price (Rs.) <span className="font-normal text-charcoal/40">— optional</span>
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  className="input"
+                  value={form.salePrice ?? ''}
+                  onChange={(e) => setForm({ ...form, salePrice: e.target.value })}
+                  placeholder="e.g. 450"
+                />
+                {hasDiscount({ price: Number(form.price), salePrice: Number(form.salePrice) }) && (
+                  <p className="mt-1 text-xs font-semibold text-green-600">
+                    {discountPercent({ price: Number(form.price), salePrice: Number(form.salePrice) })}% off
+                  </p>
+                )}
+              </div>
               <div className="sm:col-span-2">
                 <label className="label">Description</label>
                 <textarea
@@ -237,13 +306,22 @@ export default function ManageMenu() {
                 />
               </div>
               <div className="sm:col-span-2">
-                <label className="label">Image URL</label>
-                <input
-                  className="input"
-                  value={form.image}
-                  onChange={(e) => setForm({ ...form, image: e.target.value })}
-                  placeholder="https://…  (leave blank for a placeholder)"
-                />
+                <label className="label">Image</label>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <label className="btn-outline flex-none cursor-pointer whitespace-nowrap px-4 py-3 text-sm">
+                    <Plus className="h-4 w-4" /> Upload Image
+                    <input type="file" accept="image/*" className="hidden" onChange={onImageFile} />
+                  </label>
+                  <input
+                    className="input"
+                    value={form.image?.startsWith('data:') ? '' : form.image || ''}
+                    onChange={(e) => setForm({ ...form, image: e.target.value })}
+                    placeholder="…or paste an image URL"
+                  />
+                </div>
+                <p className="mt-1 text-xs text-charcoal/40">
+                  Upload from your device or paste a URL. Leave blank for a placeholder.
+                </p>
               </div>
             </div>
             <label className="flex items-center gap-2 text-sm font-semibold">
@@ -256,12 +334,24 @@ export default function ManageMenu() {
               Mark as Best Seller
             </label>
             {form.image && (
-              <img
-                src={form.image}
-                alt="preview"
-                className="h-32 w-full rounded-xl object-cover"
-                onError={(e) => (e.currentTarget.style.display = 'none')}
-              />
+              <div className="relative">
+                <img
+                  src={form.image}
+                  alt="preview"
+                  className="h-36 w-full rounded-xl object-cover ring-1 ring-black/5"
+                  onLoad={(e) => (e.currentTarget.style.display = 'block')}
+                  onError={(e) => (e.currentTarget.style.display = 'none')}
+                />
+                <button
+                  type="button"
+                  onClick={() => setForm({ ...form, image: '' })}
+                  className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white text-red-500 shadow ring-1 ring-black/5 transition hover:bg-red-50"
+                  aria-label="Remove image"
+                  title="Remove image"
+                >
+                  <Trash className="h-4 w-4" />
+                </button>
+              </div>
             )}
           </form>
         </Modal>

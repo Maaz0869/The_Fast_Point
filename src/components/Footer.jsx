@@ -7,14 +7,16 @@ export default function Footer() {
   const { restaurant } = useStore()
 
   return (
-    <footer className="mt-20 bg-charcoal text-white/80">
+    <footer className="mt-20 bg-night text-white/80">
       <div className="section grid gap-10 py-14 md:grid-cols-4">
         {/* Brand */}
         <div>
           <div className="flex items-center gap-2 text-white">
-            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-500 text-lg">
-              🍔
-            </span>
+            <img
+              src="/logo.png"
+              alt="The Snack Hut"
+              className="h-9 w-9 rounded-xl object-cover"
+            />
             <span className="font-display text-lg font-bold">The Snack Hut</span>
           </div>
           <p className="mt-4 text-sm leading-relaxed text-white/60">
@@ -67,7 +69,14 @@ export default function Footer() {
           <ul className="space-y-3 text-sm">
             <li className="flex items-start gap-2">
               <MapPin className="mt-0.5 h-4 w-4 flex-none text-brand-400" />
-              <span>{restaurant.address}</span>
+              <a
+                href={restaurant.mapUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="transition hover:text-brand-400"
+              >
+                {restaurant.address}
+              </a>
             </li>
             <li className="flex items-center gap-2">
               <Phone className="h-4 w-4 flex-none text-brand-400" />

@@ -5,7 +5,7 @@ export default function About() {
   return (
     <div>
       {/* Hero */}
-      <div className="relative overflow-hidden bg-charcoal text-white">
+      <div className="relative overflow-hidden bg-night text-white">
         <img
           src="https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=1600&q=80"
           alt="Our kitchen"

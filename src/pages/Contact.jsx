@@ -27,7 +27,13 @@ export default function Contact() {
       <div className="mx-auto mt-10 grid max-w-5xl gap-8 md:grid-cols-2">
         {/* Info */}
         <div className="space-y-4">
-          <InfoCard icon={<MapPin className="h-5 w-5" />} title="Visit Us" text={restaurant.address} />
+          <InfoCard
+            icon={<MapPin className="h-5 w-5" />}
+            title="Visit Us"
+            text={restaurant.address}
+            href={restaurant.mapUrl}
+            external
+          />
           <InfoCard
             icon={<Phone className="h-5 w-5" />}
             title="Call Us"
@@ -91,7 +97,7 @@ export default function Contact() {
   )
 }
 
-function InfoCard({ icon, title, text, href }) {
+function InfoCard({ icon, title, text, href, external }) {
   const inner = (
     <div className="card flex items-start gap-4 p-5 transition hover:shadow-card-hover">
       <span className="flex h-11 w-11 flex-none items-center justify-center rounded-xl bg-brand-50 text-brand-600">
@@ -104,7 +110,11 @@ function InfoCard({ icon, title, text, href }) {
     </div>
   )
   return href ? (
-    <a href={href} className="block">
+    <a
+      href={href}
+      className="block"
+      {...(external ? { target: '_blank', rel: 'noreferrer' } : {})}
+    >
       {inner}
     </a>
   ) : (

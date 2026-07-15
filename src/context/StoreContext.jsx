@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import {
   CATEGORIES,
   DEALS,
@@ -15,7 +15,11 @@ import {
 // ---------------------------------------------------------------------------
 // StoreContext holds all "shared/backend" data: menu, deals, slider, orders,
 // discount codes, delivery rules and restaurant settings. The admin panel
-// mutates this state; the customer site reads from it. All in-memory only.
+// mutates this state; the customer site reads from it.
+//
+// State is persisted to localStorage so orders and admin changes survive page
+// refreshes and show up in the admin panel (on the same browser/device). Seed
+// data is only used the first time, before anything is saved.
 // ---------------------------------------------------------------------------
 
 const StoreContext = createContext(null)
@@ -24,16 +28,53 @@ export const useStore = () => useContext(StoreContext)
 
 const genId = (prefix) => `${prefix}${Math.random().toString(36).slice(2, 8)}`
 
+// Bump the version suffix if the saved shape ever changes incompatibly.
+const STORAGE_KEY = 'snackhut_store_v1'
+
+const loadSaved = () => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
 export function StoreProvider({ children }) {
-  const [menu, setMenu] = useState(MENU_ITEMS)
-  const [deals, setDeals] = useState(DEALS)
-  const [slides, setSlides] = useState(SLIDES)
-  const [orders, setOrders] = useState(SEED_ORDERS)
-  const [discounts, setDiscounts] = useState(DISCOUNT_CODES)
-  const [deliveryRules, setDeliveryRules] = useState(DELIVERY_RULES)
-  const [restaurant, setRestaurant] = useState(RESTAURANT)
-  const [offerBanner, setOfferBanner] = useState(OFFER_BANNER)
-  const [orderCounter, setOrderCounter] = useState(1044)
+  const saved = loadSaved()
+
+  const [menu, setMenu] = useState(saved?.menu ?? MENU_ITEMS)
+  const [deals, setDeals] = useState(saved?.deals ?? DEALS)
+  const [slides, setSlides] = useState(saved?.slides ?? SLIDES)
+  const [orders, setOrders] = useState(saved?.orders ?? SEED_ORDERS)
+  const [discounts, setDiscounts] = useState(saved?.discounts ?? DISCOUNT_CODES)
+  const [deliveryRules, setDeliveryRules] = useState(saved?.deliveryRules ?? DELIVERY_RULES)
+  const [restaurant, setRestaurant] = useState(saved?.restaurant ?? RESTAURANT)
+  const [offerBanner, setOfferBanner] = useState(saved?.offerBanner ?? OFFER_BANNER)
+  const [orderCounter, setOrderCounter] = useState(saved?.orderCounter ?? 1044)
+
+  // Persist everything whenever it changes. Wrapped in try/catch so a full
+  // storage quota (e.g. many large uploaded images) never crashes the app.
+  useEffect(() => {
+    try {
+      localStorage.setItem(
+        STORAGE_KEY,
+        JSON.stringify({
+          menu,
+          deals,
+          slides,
+          orders,
+          discounts,
+          deliveryRules,
+          restaurant,
+          offerBanner,
+          orderCounter,
+        }),
+      )
+    } catch {
+      /* storage unavailable or over quota — keep running in-memory */
+    }
+  }, [menu, deals, slides, orders, discounts, deliveryRules, restaurant, offerBanner, orderCounter])
 
   // ---- Menu CRUD ----------------------------------------------------------
   const addMenuItem = useCallback((item) => {

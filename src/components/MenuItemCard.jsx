@@ -1,4 +1,4 @@
-import { rs } from '../utils/format.js'
+import { rs, hasDiscount, discountPercent } from '../utils/format.js'
 import { Plus, Star } from './Icons.jsx'
 
 // A single menu item card. Clicking "Add" opens the customization modal
@@ -18,6 +18,11 @@ export default function MenuItemCard({ item, onCustomize }) {
             <Star className="h-3 w-3" /> Best Seller
           </span>
         )}
+        {hasDiscount(item) && (
+          <span className="chip absolute right-3 top-3 bg-green-500 text-white shadow">
+            -{discountPercent(item)}%
+          </span>
+        )}
       </div>
       <div className="flex flex-1 flex-col p-4">
         <div className="flex items-start justify-between gap-2">
@@ -25,7 +30,16 @@ export default function MenuItemCard({ item, onCustomize }) {
         </div>
         <p className="mt-1 line-clamp-2 flex-1 text-sm text-charcoal/55">{item.description}</p>
         <div className="mt-4 flex items-center justify-between">
-          <span className="font-display text-lg font-bold text-brand-600">{rs(item.price)}</span>
+          {hasDiscount(item) ? (
+            <span className="flex items-baseline gap-2">
+              <span className="font-display text-lg font-bold text-brand-600">
+                {rs(item.salePrice)}
+              </span>
+              <span className="text-sm text-charcoal/40 line-through">{rs(item.price)}</span>
+            </span>
+          ) : (
+            <span className="font-display text-lg font-bold text-brand-600">{rs(item.price)}</span>
+          )}
           <button
             onClick={() => onCustomize(item)}
             className="btn-primary h-10 px-4 py-0 text-sm"

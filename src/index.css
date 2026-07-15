@@ -3,6 +3,73 @@
 @tailwind utilities;
 
 @layer base {
+  /* Theme tokens — light mode defaults.
+     `cream`    = page background
+     `charcoal` = text / foreground
+     `brand-*`  = accent palette (swappable via [data-accent] below) */
+  :root {
+    --cream: 253 250 246;   /* page background   #fdfaf6 */
+    --charcoal: 31 27 24;   /* text / foreground #1f1b18 */
+
+    /* Default accent — Orange */
+    --brand-50: 255 245 242;
+    --brand-100: 255 230 222;
+    --brand-200: 255 201 184;
+    --brand-300: 255 162 134;
+    --brand-400: 255 112 67;
+    --brand-500: 244 81 30;
+    --brand-600: 214 60 14;
+    --brand-700: 178 42 8;
+    --brand-800: 138 33 9;
+    --brand-900: 107 28 12;
+  }
+
+  /* ----- Selectable accent colour themes -------------------------------- */
+  [data-accent='rose'] {
+    --brand-50: 255 241 242;  --brand-100: 255 228 230; --brand-200: 254 205 211;
+    --brand-300: 253 164 175; --brand-400: 251 113 133; --brand-500: 244 63 94;
+    --brand-600: 225 29 72;   --brand-700: 190 18 60;   --brand-800: 159 18 57;
+    --brand-900: 136 19 55;
+  }
+  [data-accent='emerald'] {
+    --brand-50: 236 253 245;  --brand-100: 209 250 229; --brand-200: 167 243 208;
+    --brand-300: 110 231 183; --brand-400: 52 211 153;  --brand-500: 16 185 129;
+    --brand-600: 5 150 105;   --brand-700: 4 120 87;    --brand-800: 6 95 70;
+    --brand-900: 6 78 59;
+  }
+  [data-accent='blue'] {
+    --brand-50: 239 246 255;  --brand-100: 219 234 254; --brand-200: 191 219 254;
+    --brand-300: 147 197 253; --brand-400: 96 165 250;  --brand-500: 59 130 246;
+    --brand-600: 37 99 235;   --brand-700: 29 78 216;   --brand-800: 30 64 175;
+    --brand-900: 30 58 138;
+  }
+  [data-accent='violet'] {
+    --brand-50: 245 243 255;  --brand-100: 237 233 254; --brand-200: 221 214 254;
+    --brand-300: 196 181 253; --brand-400: 167 139 250; --brand-500: 139 92 246;
+    --brand-600: 124 58 237;  --brand-700: 109 40 217;  --brand-800: 91 33 182;
+    --brand-900: 76 29 149;
+  }
+
+  /* Dark mode = dark page background, but CARDS STAY WHITE.
+     The background flips dark and the default text flips light (so text that
+     sits directly on the dark background stays readable). Cards keep their
+     white `bg-white`, so inside any white surface we reset --charcoal back to
+     dark — CSS variable inheritance cascades it to all text in that card. */
+  .dark {
+    --cream: 18 15 12;       /* rich warm-dark page background #120f0c */
+    --charcoal: 237 233 228; /* light text on the dark background #ede9e4 */
+  }
+  .dark .bg-white,
+  .dark .bg-white\/95,
+  .dark .bg-white\/90,
+  .dark .card,
+  .dark .input,
+  .dark .bg-gray-50,
+  .dark .bg-gray-100 {
+    --charcoal: 31 27 24;    /* dark text back on white cards & light panels
+                                (also keeps the admin panel readable) */
+  }
+
   html {
     scroll-behavior: smooth;
   }
@@ -11,6 +78,11 @@
   }
   h1, h2, h3, h4 {
     @apply font-display;
+  }
+
+  /* Subtle hairline under the (now dark) sticky navbar so it reads on dark. */
+  .dark header {
+    border-color: rgb(255 255 255 / 0.08);
   }
 }
 
@@ -31,7 +103,7 @@
     @apply btn text-charcoal/70 hover:bg-black/5 hover:text-charcoal;
   }
   .btn-dark {
-    @apply btn bg-charcoal text-white hover:bg-black active:scale-95;
+    @apply btn bg-night text-white hover:opacity-90 active:scale-95;
   }
   .card {
     @apply rounded-2xl bg-white shadow-card ring-1 ring-black/5 transition-all duration-300;

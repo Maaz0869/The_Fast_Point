@@ -2,7 +2,9 @@ import { useState } from 'react'
 import { Link, NavLink, useLocation } from 'react-router-dom'
 import { useCart } from '../context/CartContext.jsx'
 import { useStore } from '../context/StoreContext.jsx'
-import { Cart, Menu as MenuIcon, Close } from './Icons.jsx'
+import { useTheme } from '../context/ThemeContext.jsx'
+import ThemePicker from './ThemePicker.jsx'
+import { Cart, Menu as MenuIcon, Close, Sun, Moon } from './Icons.jsx'
 
 const links = [
   { to: '/', label: 'Home' },
@@ -15,6 +17,7 @@ const links = [
 export default function Navbar() {
   const { count } = useCart()
   const { restaurant } = useStore()
+  const { isDark, toggleTheme } = useTheme()
   const [open, setOpen] = useState(false)
   const location = useLocation()
 
@@ -23,9 +26,11 @@ export default function Navbar() {
       <nav className="section flex h-16 items-center justify-between gap-4">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-2" onClick={() => setOpen(false)}>
-          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand-500 text-lg shadow-md shadow-brand-500/30">
-            🍔
-          </span>
+          <img
+            src="/logo.png"
+            alt="The Snack Hut"
+            className="h-9 w-9 rounded-xl object-cover shadow-md shadow-brand-500/30"
+          />
           <span className="font-display text-lg font-bold leading-tight tracking-tight">
             The Snack <span className="text-brand-500">Hut</span>
           </span>
@@ -57,6 +62,15 @@ export default function Navbar() {
           {!restaurant.isOpen && (
             <span className="chip hidden bg-red-100 text-red-600 sm:inline-flex">Closed</span>
           )}
+          <ThemePicker />
+          <button
+            onClick={toggleTheme}
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-card ring-1 ring-black/5 transition hover:scale-105 hover:text-brand-500"
+            aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+            title={isDark ? 'Light mode' : 'Dark mode'}
+          >
+            {isDark ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+          </button>
           <Link
             to="/cart"
             className="relative flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-card ring-1 ring-black/5 transition hover:scale-105 hover:text-brand-500"

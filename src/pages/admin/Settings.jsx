@@ -104,6 +104,21 @@ export default function Settings() {
                 onChange={(e) => setForm({ ...form, address: e.target.value })}
               />
             </div>
+            <div className="sm:col-span-2">
+              <label className="label">WhatsApp Auto-Send API Key (CallMeBot)</label>
+              <input
+                className="input"
+                value={form.callmebotApiKey || ''}
+                onChange={(e) => setForm({ ...form, callmebotApiKey: e.target.value })}
+                placeholder="Paste your CallMeBot API key"
+              />
+              <p className="mt-1 text-xs text-charcoal/45">
+                When set, new orders are sent straight to your WhatsApp — customers stay on the site.
+                Get a free key: from your phone, WhatsApp{' '}
+                <span className="font-semibold">“I allow callmebot to send me messages”</span> to{' '}
+                <span className="font-semibold">+34 644 44 21 07</span>; it replies with your API key.
+              </p>
+            </div>
           </div>
         </div>
 

@@ -43,6 +43,7 @@ export const MENU_ITEMS = [
     name: 'Double Cheese Melt',
     category: 'burgers',
     price: 690,
+    salePrice: 590,
     description: 'Two beef patties, double cheese, caramelised onions & pickles.',
     image: img('1550547660-d9450f859349'),
   },
@@ -51,6 +52,7 @@ export const MENU_ITEMS = [
     name: 'Pepperoni Pizza',
     category: 'pizza',
     price: 950,
+    salePrice: 799,
     description: 'Loaded pepperoni, mozzarella & our signature tomato base.',
     image: img('1628840042765-356cda07504e'),
     bestSeller: true,
@@ -256,10 +258,16 @@ export const DELIVERY_RULES = {
 export const RESTAURANT = {
   name: 'The Snack Hut',
   tagline: 'Fresh. Fast. Delicious.',
-  phone: '+92 300 1234567',
-  whatsapp: '923001234567',
+  phone: '+92 344 999 0869',
+  whatsapp: '923449990869',
+  // CallMeBot API key — lets orders auto-send to the WhatsApp number above
+  // without the customer opening WhatsApp. Set it from Admin → Settings.
+  // Get a free key: WhatsApp "I allow callmebot to send me messages" to
+  // +34 644 44 21 07 and it replies with your apikey.
+  callmebotApiKey: '',
   email: 'hello@thesnackhut.pk',
-  address: 'Plot 24, Food Street, Gulberg III, Lahore',
+  address: 'Barikot, Swat — near Daewoo Adda',
+  mapUrl: 'https://www.google.com/maps/search/?api=1&query=Barikot+Swat+near+Daewoo+Adda',
   isOpen: true,
   hours: [
     { day: 'Monday – Thursday', time: '12:00 PM – 12:00 AM' },

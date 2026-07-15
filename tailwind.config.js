@@ -1,28 +1,37 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,jsx}'],
+  darkMode: 'class',
   theme: {
     extend: {
       colors: {
+        // Brand/accent palette is driven by CSS variables so it can be
+        // swapped at runtime via the color-theme picker (see index.css +
+        // ThemeContext). Alpha modifiers still work via <alpha-value>.
         brand: {
-          50: '#fff5f2',
-          100: '#ffe6de',
-          200: '#ffc9b8',
-          300: '#ffa286',
-          400: '#ff7043',
-          500: '#f4511e', // primary orange
-          600: '#d63c0e',
-          700: '#b22a08',
-          800: '#8a2109',
-          900: '#6b1c0c',
+          50: 'rgb(var(--brand-50) / <alpha-value>)',
+          100: 'rgb(var(--brand-100) / <alpha-value>)',
+          200: 'rgb(var(--brand-200) / <alpha-value>)',
+          300: 'rgb(var(--brand-300) / <alpha-value>)',
+          400: 'rgb(var(--brand-400) / <alpha-value>)',
+          500: 'rgb(var(--brand-500) / <alpha-value>)',
+          600: 'rgb(var(--brand-600) / <alpha-value>)',
+          700: 'rgb(var(--brand-700) / <alpha-value>)',
+          800: 'rgb(var(--brand-800) / <alpha-value>)',
+          900: 'rgb(var(--brand-900) / <alpha-value>)',
         },
         crimson: {
           500: '#c0392b',
           600: '#a93226',
           700: '#922b21',
         },
-        cream: '#fdfaf6',
-        charcoal: '#1f1b18',
+        // Theme-aware tokens (flip in dark mode via CSS variables in index.css).
+        // `cream`  = page background,  `charcoal` = primary foreground/text.
+        // In dark mode the background goes dark and cards stay white.
+        cream: 'rgb(var(--cream) / <alpha-value>)',
+        charcoal: 'rgb(var(--charcoal) / <alpha-value>)',
+        // Fixed dark shade for always-dark areas (footer, dark hero/sidebar).
+        night: '#1f1b18',
       },
       fontFamily: {
         display: ['"Poppins"', 'system-ui', 'sans-serif'],

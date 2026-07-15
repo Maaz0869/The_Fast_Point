@@ -4,8 +4,8 @@ import { useCart } from '../context/CartContext.jsx'
 import { useStore } from '../context/StoreContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { rs } from '../utils/format.js'
-import { buildOrderMessage, buildWhatsappLink } from '../utils/whatsapp.js'
-import { Check, Whatsapp } from '../components/Icons.jsx'
+import { buildOrderMessage, buildWhatsappLink, sendOrderToWhatsapp } from '../utils/whatsapp.js'
+import { Check } from '../components/Icons.jsx'
 
 const ORDER_TYPES = [
   { id: 'Delivery', label: 'Delivery', icon: '🛵', hint: 'To your door' },
@@ -113,20 +113,29 @@ export default function Checkout() {
       return
     }
     setPlacing(true)
-    // Simulate a short network delay for realism.
-    setTimeout(() => {
-      const record = placeOrder(buildOrderPayload())
-      clearCart()
-      setPlacing(false)
-      toast.success('Order placed successfully! 🎉')
-      navigate(`/order/${record.id}`, { state: { order: record } })
-    }, 700)
+    const message = buildOrderMessage({
+      items: itemsForMsg(items),
+      orderType,
+      customer,
+      subtotal,
+      deliveryFee,
+      discount,
+      total,
+    })
+    // Send the order straight to the shop's WhatsApp — the customer never
+    // leaves the site. Falls back to opening WhatsApp only if no auto-send key
+    // is configured yet.
+    if (restaurant.callmebotApiKey) {
+      sendOrderToWhatsapp(restaurant.whatsapp, restaurant.callmebotApiKey, message).catch(() => {})
+    } else {
+      window.open(buildWhatsappLink(restaurant.whatsapp, message), '_blank')
+    }
+    const record = placeOrder(buildOrderPayload())
+    clearCart()
+    setPlacing(false)
+    toast.success('Order placed successfully! 🎉')
+    navigate(`/order/${record.id}`, { state: { order: record } })
   }
-
-  const whatsappLink = buildWhatsappLink(
-    restaurant.whatsapp,
-    buildOrderMessage({ items: itemsForMsg(items), orderType, customer, subtotal, deliveryFee, discount, total }),
-  )
 
   return (
     <div className="section py-10">
@@ -286,15 +295,6 @@ export default function Checkout() {
             <button type="submit" disabled={placing || !restaurant.isOpen} className="btn-primary mt-5 w-full">
               {placing ? 'Placing order…' : `Place Order · ${rs(total)}`}
             </button>
-
-            <a
-              href={whatsappLink}
-              target="_blank"
-              rel="noreferrer"
-              className="btn mt-3 w-full bg-[#25D366] text-white hover:brightness-95"
-            >
-              <Whatsapp className="h-5 w-5" /> Order via WhatsApp
-            </a>
 
             {!restaurant.isOpen && (
               <p className="mt-3 text-center text-sm font-semibold text-red-600">

@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react'
 import { EXTRAS, SPICE_LEVELS } from '../data/mockData.js'
 import { useCart } from '../context/CartContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
-import { rs } from '../utils/format.js'
+import { rs, hasDiscount, effectivePrice, discountPercent } from '../utils/format.js'
 import { Check, Close, Minus, Plus } from './Icons.jsx'
 
 // Modal for customizing a menu item (extras + spice level + quantity) before
@@ -15,14 +15,15 @@ export default function ItemModal({ item, onClose }) {
   const [qty, setQty] = useState(1)
 
   const spiceObj = SPICE_LEVELS.find((s) => s.id === spice)
+  const basePrice = effectivePrice(item) // sale price when discounted
 
   const unitPrice = useMemo(() => {
     const extrasTotal = extras.reduce((sum, id) => {
       const e = EXTRAS.find((x) => x.id === id)
       return sum + (e?.price || 0)
     }, 0)
-    return item.price + extrasTotal + (spiceObj?.price || 0)
-  }, [extras, spiceObj, item.price])
+    return basePrice + extrasTotal + (spiceObj?.price || 0)
+  }, [extras, spiceObj, basePrice])
 
   const toggleExtra = (id) =>
     setExtras((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
@@ -32,7 +33,7 @@ export default function ItemModal({ item, onClose }) {
       itemId: item.id,
       name: item.name,
       image: item.image,
-      basePrice: item.price,
+      basePrice,
       extras: extras.map((id) => EXTRAS.find((x) => x.id === id)).filter(Boolean),
       spice,
       spiceLabel: spiceObj?.name,
@@ -65,7 +66,15 @@ export default function ItemModal({ item, onClose }) {
           </button>
           <div className="absolute bottom-3 left-4 right-4 text-white">
             <h3 className="font-display text-2xl font-bold drop-shadow">{item.name}</h3>
-            <p className="text-sm text-white/85">{rs(item.price)}</p>
+            {hasDiscount(item) ? (
+              <p className="flex items-center gap-2 text-sm text-white/85">
+                <span className="font-bold">{rs(item.salePrice)}</span>
+                <span className="text-white/60 line-through">{rs(item.price)}</span>
+                <span className="chip bg-green-500 text-white">-{discountPercent(item)}%</span>
+              </p>
+            ) : (
+              <p className="text-sm text-white/85">{rs(item.price)}</p>
+            )}
           </div>
         </div>
 
