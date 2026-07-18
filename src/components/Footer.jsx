@@ -49,7 +49,6 @@ export default function Footer() {
               { to: '/menu', label: 'Menu' },
               { to: '/deals', label: 'Deals & Offers' },
               { to: '/track', label: 'Track Order' },
-              { to: '/about', label: 'About Us' },
               { to: '/admin', label: 'Admin Login' },
             ].map((l) => (
               <li key={l.to}>
