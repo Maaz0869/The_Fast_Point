@@ -30,6 +30,7 @@ Demo login — **`admin` / `admin123`**
 - React 18 + React Router 6
 - Tailwind CSS 3
 - Vite 5
+- **Supabase** (Postgres) backend — menu, deals, orders, finance & settings
 - State via React Context (cart, auth, store data, toasts)
 
 ## 🚀 Getting Started
@@ -46,6 +47,31 @@ npm run build     # production build → dist/
 npm run preview   # preview the production build
 ```
 
+### Environment variables
+The app connects to Supabase. The project URL + anon key have safe defaults
+baked into `src/lib/supabase.js`, so it runs with no config. To point it at a
+different Supabase project, copy `.env.example` → `.env` and set:
+
+```
+VITE_SUPABASE_URL=your-project-url
+VITE_SUPABASE_ANON_KEY=your-anon-key
+```
+
+> Only the **anon** key belongs in the browser/env — never the `service_role`
+> key or a `sbp_` management token.
+
+## ▲ Deploy to Vercel
+The repo is Vercel-ready (`vercel.json` sets the Vite framework, build command,
+and SPA rewrites so deep links like `/menu` and `/admin` work on refresh).
+
+1. Push the repo to GitHub (already done).
+2. On [vercel.com](https://vercel.com), **Add New → Project** and import this repo.
+3. Vercel auto-detects Vite — no build settings to change
+   (build `npm run build`, output `dist`).
+4. *(Optional)* Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` under
+   **Settings → Environment Variables** to override the built-in defaults.
+5. **Deploy.** Every push to the connected branch redeploys automatically.
+
 ## 📁 Project Structure
 
 ```
@@ -59,10 +85,13 @@ src/
 └── main.jsx        # App entry + provider composition
 ```
 
-## 🔌 Wiring Up a Backend
-All shared data flows through `src/context/StoreContext.jsx`. Its CRUD helpers
-(`addMenuItem`, `placeOrder`, `updateOrderStatus`, …) currently mutate local
-state seeded from `src/data/mockData.js`. Swap those implementations for API
-calls and the UI keeps working unchanged.
+## 🔌 Backend (Supabase)
+All shared data flows through `src/context/StoreContext.jsx`, which loads from
+and mirrors every change back to **Supabase** via `src/lib/db.js`
+(`src/lib/supabase.js` holds the client). `localStorage` is kept as an instant
+first-paint / offline cache. On first run the tables seed themselves from
+`src/data/mockData.js`. Tables: `menu_items`, `deals`, `slides`, `discounts`,
+`orders`, `expenses`, `suppliers`, `businesses`, and a key/value `settings`
+table (restaurant info, delivery rules, offer banner, order counter).
 
 > Currency is shown in PKR (Rs.) throughout.
