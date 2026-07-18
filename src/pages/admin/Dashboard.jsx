@@ -59,7 +59,7 @@ export default function Dashboard() {
                   <div>
                     <p className="font-semibold">{o.id}</p>
                     <p className="text-xs text-charcoal/50">
-                      {o.customer.name} · {o.orderType} · {formatDateTime(o.createdAt)}
+                      {o.customer?.name || '—'} · {o.orderType} · {formatDateTime(o.createdAt)}
                     </p>
                   </div>
                   <div className="text-right">
@@ -79,7 +79,9 @@ export default function Dashboard() {
             {[
               { to: '/admin/menu', label: 'Add Menu Item', icon: '🍔' },
               { to: '/admin/deals', label: 'Create a Deal', icon: '🏷️' },
-              { to: '/admin/slider', label: 'Update Slider', icon: '🖼️' },
+              { to: '/admin/expenses', label: 'Log an Expense', icon: '💸' },
+              { to: '/admin/suppliers', label: 'Suppliers & Udhaar', icon: '🤝' },
+              { to: '/admin/businesses', label: 'Businesses (P&L)', icon: '🏢' },
               { to: '/admin/delivery', label: 'Delivery Rules', icon: '🛵' },
             ].map((a) => (
               <Link

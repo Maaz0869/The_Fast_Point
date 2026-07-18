@@ -22,16 +22,33 @@ export const ACCENTS = [
   { key: 'violet', label: 'Violet', color: '#8b5cf6' },
 ]
 
+// localStorage can throw in sandboxed iframes / privacy modes. Wrap all access
+// so the outermost provider can never crash the whole app on mount.
+const safeGet = (key) => {
+  try {
+    return localStorage.getItem(key)
+  } catch {
+    return null
+  }
+}
+const safeSet = (key, value) => {
+  try {
+    localStorage.setItem(key, value)
+  } catch {
+    /* storage unavailable — theme still works in-memory */
+  }
+}
+
 const getInitialMode = () => {
   if (typeof window === 'undefined') return 'light'
-  const stored = localStorage.getItem('theme')
+  const stored = safeGet('theme')
   if (stored === 'light' || stored === 'dark') return stored
   return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
 }
 
 const getInitialAccent = () => {
   if (typeof window === 'undefined') return 'orange'
-  const stored = localStorage.getItem('accent')
+  const stored = safeGet('accent')
   return ACCENTS.some((a) => a.key === stored) ? stored : 'orange'
 }
 
@@ -42,7 +59,7 @@ export function ThemeProvider({ children }) {
   useEffect(() => {
     const root = document.documentElement
     root.classList.toggle('dark', mode === 'dark')
-    localStorage.setItem('theme', mode)
+    safeSet('theme', mode)
   }, [mode])
 
   useEffect(() => {
@@ -50,7 +67,7 @@ export function ThemeProvider({ children }) {
     // 'orange' is the :root default, so no attribute needed for it.
     if (accent === 'orange') root.removeAttribute('data-accent')
     else root.setAttribute('data-accent', accent)
-    localStorage.setItem('accent', accent)
+    safeSet('accent', accent)
   }, [accent])
 
   const toggleTheme = () => setMode((m) => (m === 'dark' ? 'light' : 'dark'))

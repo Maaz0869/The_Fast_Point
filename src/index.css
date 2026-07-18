@@ -84,6 +84,16 @@
   .dark header {
     border-color: rgb(255 255 255 / 0.08);
   }
+
+  /* Branded keyboard-focus ring for every interactive control that doesn't
+     already define its own (the .btn/.input helpers opt out with a higher
+     specificity :focus rule, so they keep their custom ring). Mouse clicks
+     don't trigger :focus-visible, so this only shows for keyboard users. */
+  :where(a, button, [role='button'], input, select, textarea, summary):focus-visible {
+    outline: 2px solid rgb(var(--brand-500));
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
 }
 
 @layer components {
@@ -122,6 +132,17 @@
   .section {
     @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;
   }
+  /* Full-width section band. White in light mode for a subtle lift off the
+     cream page; in dark mode a faint tint instead of a harsh white stripe.
+     Unlike `bg-white`, it does NOT reset --charcoal, so text stays light on
+     dark. Use for full-bleed section backgrounds (not cards). */
+  .band {
+    @apply bg-white;
+  }
+}
+
+.dark .band {
+  background-color: rgb(255 255 255 / 0.035);
 }
 
 /* Hide scrollbar for horizontal category rows */

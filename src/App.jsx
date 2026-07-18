@@ -29,6 +29,9 @@ import ManageSlider from './pages/admin/ManageSlider.jsx'
 import DeliveryRules from './pages/admin/DeliveryRules.jsx'
 import Settings from './pages/admin/Settings.jsx'
 import Orders from './pages/admin/Orders.jsx'
+import Expenses from './pages/admin/Expenses.jsx'
+import Suppliers from './pages/admin/Suppliers.jsx'
+import Businesses from './pages/admin/Businesses.jsx'
 
 export default function App() {
   const location = useLocation()
@@ -74,6 +77,9 @@ export default function App() {
             <Route path="discounts" element={<ManageDiscounts />} />
             <Route path="slider" element={<ManageSlider />} />
             <Route path="delivery" element={<DeliveryRules />} />
+            <Route path="expenses" element={<Expenses />} />
+            <Route path="suppliers" element={<Suppliers />} />
+            <Route path="businesses" element={<Businesses />} />
             <Route path="settings" element={<Settings />} />
             <Route path="orders" element={<Orders />} />
           </Route>

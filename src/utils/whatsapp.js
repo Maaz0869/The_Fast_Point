@@ -17,8 +17,20 @@ export const sendOrderToWhatsapp = (phone, apiKey, message) => {
 }
 
 // Compose a nicely formatted order message from cart contents + totals.
-export const buildOrderMessage = ({ items, orderType, customer, subtotal, deliveryFee, discount, total }) => {
-  const lines = ['*New Order — The Snack Hut* 🍔', '']
+export const buildOrderMessage = ({
+  items,
+  orderType,
+  customer,
+  subtotal,
+  deliveryFee,
+  discount,
+  total,
+  payment,
+  orderId,
+  shopName = 'The Snack Hut',
+}) => {
+  const lines = [`*New Order — ${shopName}* 🍔`, '']
+  if (orderId) lines.push(`Order #: ${orderId}`, '')
   items.forEach((l) => {
     lines.push(`• ${l.qty}× ${l.name} — ${rs(l.unitPrice * l.qty)}`)
     if (l.extras?.length) lines.push(`   + ${l.extras.map((e) => e.name).join(', ')}`)
@@ -26,6 +38,7 @@ export const buildOrderMessage = ({ items, orderType, customer, subtotal, delive
   })
   lines.push('')
   lines.push(`Order type: ${orderType}`)
+  if (payment) lines.push(`Payment: ${payment}`)
   if (customer?.name) lines.push(`Name: ${customer.name}`)
   if (customer?.phone) lines.push(`Phone: ${customer.phone}`)
   if (customer?.address) lines.push(`Address: ${customer.address}`)

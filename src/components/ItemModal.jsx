@@ -2,20 +2,24 @@ import { useMemo, useState } from 'react'
 import { EXTRAS, SPICE_LEVELS } from '../data/mockData.js'
 import { useCart } from '../context/CartContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
-import { rs, hasDiscount, effectivePrice, discountPercent } from '../utils/format.js'
+import { rs, hasDiscount, hasSizes, effectivePrice, discountPercent } from '../utils/format.js'
 import { Check, Close, Minus, Plus } from './Icons.jsx'
 
-// Modal for customizing a menu item (extras + spice level + quantity) before
-// adding it to the cart. Price updates live as options change.
+// Modal for customizing a menu item (size + extras + spice level + quantity)
+// before adding it to the cart. Price updates live as options change.
 export default function ItemModal({ item, onClose }) {
   const { addItem } = useCart()
   const toast = useToast()
+  const sized = hasSizes(item)
+  const [size, setSize] = useState(sized ? item.sizes[0].id : null)
   const [extras, setExtras] = useState([])
   const [spice, setSpice] = useState('medium')
   const [qty, setQty] = useState(1)
 
   const spiceObj = SPICE_LEVELS.find((s) => s.id === spice)
-  const basePrice = effectivePrice(item) // sale price when discounted
+  const sizeObj = sized ? item.sizes.find((s) => s.id === size) : null
+  // Sized items price by the chosen size; otherwise the (sale) price.
+  const basePrice = sized ? Number(sizeObj?.price) || 0 : effectivePrice(item)
 
   const unitPrice = useMemo(() => {
     const extrasTotal = extras.reduce((sum, id) => {
@@ -31,16 +35,18 @@ export default function ItemModal({ item, onClose }) {
   const handleAdd = () => {
     addItem({
       itemId: item.id,
-      name: item.name,
+      name: sizeObj ? `${item.name} (${sizeObj.name})` : item.name,
       image: item.image,
       basePrice,
+      sizeId: size,
+      sizeLabel: sizeObj?.name,
       extras: extras.map((id) => EXTRAS.find((x) => x.id === id)).filter(Boolean),
       spice,
       spiceLabel: spiceObj?.name,
       unitPrice,
       qty,
     })
-    toast.success(`${qty}× ${item.name} added to cart`)
+    toast.success(`${qty}× ${sizeObj ? `${item.name} (${sizeObj.name})` : item.name} added to cart`)
     onClose()
   }
 
@@ -66,11 +72,13 @@ export default function ItemModal({ item, onClose }) {
           </button>
           <div className="absolute bottom-3 left-4 right-4 text-white">
             <h3 className="font-display text-2xl font-bold drop-shadow">{item.name}</h3>
-            {hasDiscount(item) ? (
+            {sized ? (
+              <p className="text-sm text-white/85">{rs(basePrice)}</p>
+            ) : hasDiscount(item) ? (
               <p className="flex items-center gap-2 text-sm text-white/85">
                 <span className="font-bold">{rs(item.salePrice)}</span>
                 <span className="text-white/60 line-through">{rs(item.price)}</span>
-                <span className="chip bg-green-500 text-white">-{discountPercent(item)}%</span>
+                <span className="chip bg-emerald-500 text-white">-{discountPercent(item)}%</span>
               </p>
             ) : (
               <p className="text-sm text-white/85">{rs(item.price)}</p>
@@ -81,6 +89,29 @@ export default function ItemModal({ item, onClose }) {
         {/* Options */}
         <div className="flex-1 overflow-y-auto px-5 py-5">
           <p className="mb-4 text-sm text-charcoal/60">{item.description}</p>
+
+          {/* Size (pizza etc.) */}
+          {sized && (
+            <div className="mb-6">
+              <h4 className="mb-2 font-display text-sm font-bold">Choose Size</h4>
+              <div className="grid grid-cols-3 gap-2">
+                {item.sizes.map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => setSize(s.id)}
+                    className={`rounded-xl border-2 px-3 py-2.5 text-sm font-semibold transition ${
+                      size === s.id
+                        ? 'border-brand-500 bg-brand-50 text-brand-600'
+                        : 'border-black/10 hover:border-brand-300'
+                    }`}
+                  >
+                    {s.name}
+                    <span className="block text-xs font-normal">{rs(s.price)}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Spice level */}
           <div className="mb-6">

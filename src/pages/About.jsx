@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom'
 import SectionHeading from '../components/SectionHeading.jsx'
+import { useStore } from '../context/StoreContext.jsx'
 
 export default function About() {
+  const { restaurant } = useStore()
   return (
     <div>
       {/* Hero */}
@@ -15,7 +17,7 @@ export default function About() {
           <span className="chip mb-3 bg-brand-500 text-white">Our Story</span>
           <h1 className="font-display text-4xl font-extrabold sm:text-5xl">Fresh. Fast. Delicious.</h1>
           <p className="mx-auto mt-4 max-w-2xl text-white/80">
-            The Snack Hut started with one simple idea — serve seriously good fast food made from
+            {restaurant.name} started with one simple idea — serve seriously good fast food made from
             quality ingredients, at prices everyone can enjoy.
           </p>
         </div>
@@ -54,7 +56,7 @@ export default function About() {
       </section>
 
       {/* Values */}
-      <section className="bg-white py-16">
+      <section className="band py-16">
         <div className="section">
           <SectionHeading eyebrow="Why Us" title="What Makes Us Different" />
           <div className="mt-10 grid gap-6 md:grid-cols-3">

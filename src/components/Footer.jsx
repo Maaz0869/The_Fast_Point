@@ -14,10 +14,10 @@ export default function Footer() {
           <div className="flex items-center gap-2 text-white">
             <img
               src="/logo.png"
-              alt="The Snack Hut"
+              alt={restaurant.name}
               className="h-9 w-9 rounded-xl object-cover"
             />
-            <span className="font-display text-lg font-bold">The Snack Hut</span>
+            <span className="font-display text-lg font-bold">{restaurant.name}</span>
           </div>
           <p className="mt-4 text-sm leading-relaxed text-white/60">
             {restaurant.tagline} Serving up the tastiest burgers, pizzas and more — made fresh,
@@ -116,7 +116,7 @@ export default function Footer() {
 
       <div className="border-t border-white/10">
         <div className="section flex flex-col items-center justify-between gap-2 py-5 text-xs text-white/40 sm:flex-row">
-          <p>© {new Date().getFullYear()} The Snack Hut. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} {restaurant.name}. All rights reserved.</p>
           <p>Made with 🧡 for food lovers.</p>
         </div>
       </div>

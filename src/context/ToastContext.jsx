@@ -30,18 +30,20 @@ export function ToastProvider({ children }) {
       {children}
       <div className="pointer-events-none fixed inset-x-0 top-4 z-[100] flex flex-col items-center gap-2 px-4 sm:items-end sm:pr-6">
         {toasts.map((t) => (
-          <ToastItem key={t.id} toast={t} onDone={() => remove(t.id)} />
+          <ToastItem key={t.id} toast={t} onRemove={remove} />
         ))}
       </div>
     </ToastContext.Provider>
   )
 }
 
-function ToastItem({ toast, onDone }) {
+function ToastItem({ toast, onRemove }) {
+  // Depend on the stable id (not a fresh closure) so the 3.2s timer is set once
+  // and isn't reset every time another toast is added or removed.
   useEffect(() => {
-    const timer = setTimeout(onDone, 3200)
+    const timer = setTimeout(() => onRemove(toast.id), 3200)
     return () => clearTimeout(timer)
-  }, [onDone])
+  }, [toast.id, onRemove])
 
   const styles = {
     success: { bar: 'bg-emerald-500', icon: '✓', ring: 'ring-emerald-500/20' },
@@ -60,7 +62,7 @@ function ToastItem({ toast, onDone }) {
       </span>
       <p className="text-sm font-medium text-charcoal">{toast.message}</p>
       <button
-        onClick={onDone}
+        onClick={() => onRemove(toast.id)}
         className="ml-auto flex-none text-charcoal/30 transition hover:text-charcoal"
         aria-label="Dismiss"
       >

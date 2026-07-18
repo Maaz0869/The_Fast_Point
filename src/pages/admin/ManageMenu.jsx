@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useStore } from '../../context/StoreContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import Modal from '../../components/Modal.jsx'
-import { rs, hasDiscount, discountPercent } from '../../utils/format.js'
+import { rs, hasDiscount, hasSizes, discountPercent } from '../../utils/format.js'
 import { Plus, Trash } from '../../components/Icons.jsx'
 
 const blank = {
@@ -14,6 +14,20 @@ const blank = {
   image: '',
   bestSeller: false,
 }
+
+const slug = (s) =>
+  String(s)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+
+// Default rows offered when turning sizes on (e.g. pizza).
+const DEFAULT_SIZES = [
+  { id: 'small', name: 'Small', price: '' },
+  { id: 'medium', name: 'Medium', price: '' },
+  { id: 'large', name: 'Large', price: '' },
+  { id: 'xl', name: 'Extra Large', price: '' },
+]
 
 export default function ManageMenu() {
   const { menu, categories, addMenuItem, updateMenuItem, deleteMenuItem } = useStore()
@@ -30,6 +44,27 @@ export default function ManageMenu() {
     setForm({ ...item })
     setEditing(item.id)
   }
+
+  // ---- Size rows (for pizza etc.) ----
+  const sizesOn = Array.isArray(form.sizes)
+  // Selecting the Pizza category auto-enables size options (Small → XL).
+  const onCategoryChange = (category) =>
+    setForm((f) => ({
+      ...f,
+      category,
+      sizes:
+        category === 'pizza' && !Array.isArray(f.sizes)
+          ? DEFAULT_SIZES.map((s) => ({ ...s }))
+          : f.sizes,
+    }))
+  const toggleSizes = (on) =>
+    setForm((f) => ({ ...f, sizes: on ? f.sizes || DEFAULT_SIZES.map((s) => ({ ...s })) : null }))
+  const updateSize = (i, patch) =>
+    setForm((f) => ({ ...f, sizes: f.sizes.map((s, idx) => (idx === i ? { ...s, ...patch } : s)) }))
+  const addSize = () =>
+    setForm((f) => ({ ...f, sizes: [...(f.sizes || []), { id: '', name: '', price: '' }] }))
+  const removeSize = (i) =>
+    setForm((f) => ({ ...f, sizes: f.sizes.filter((_, idx) => idx !== i) }))
 
   // Read a chosen image file into a base64 data URL so it can be stored inline
   // (no backend). Works everywhere <img src> is used.
@@ -52,26 +87,56 @@ export default function ManageMenu() {
 
   const save = (e) => {
     e.preventDefault()
-    if (!form.name.trim() || !form.price) {
-      toast.error('Name and price are required')
+    if (!form.name.trim()) {
+      toast.error('Name is required')
       return
     }
-    const price = Number(form.price)
-    // Discount price is optional; when given it must be a positive number
-    // below the regular price.
-    const sale = form.salePrice === '' || form.salePrice == null ? null : Number(form.salePrice)
-    if (sale != null && (sale <= 0 || sale >= price)) {
-      toast.error('Discount price must be greater than 0 and less than the price')
-      return
+    const fallbackImage =
+      'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=800&q=80'
+
+    let payload
+    if (Array.isArray(form.sizes)) {
+      // Sized item (e.g. pizza) — prices come from the size rows.
+      const cleanSizes = form.sizes
+        .filter((s) => s.name.trim() && Number(s.price) > 0)
+        .map((s, i) => ({
+          id: s.id || slug(s.name) || `s${i}`,
+          name: s.name.trim(),
+          price: Number(s.price),
+        }))
+      if (cleanSizes.length === 0) {
+        toast.error('Add at least one size with a price')
+        return
+      }
+      payload = {
+        ...form,
+        sizes: cleanSizes,
+        price: Math.min(...cleanSizes.map((s) => s.price)), // smallest = "from" price
+        salePrice: null, // discounts not used with sizes
+        image: form.image || fallbackImage,
+      }
+    } else {
+      if (!form.price) {
+        toast.error('Price is required')
+        return
+      }
+      const price = Number(form.price)
+      // Discount price is optional; when given it must be a positive number
+      // below the regular price.
+      const sale = form.salePrice === '' || form.salePrice == null ? null : Number(form.salePrice)
+      if (sale != null && (sale <= 0 || sale >= price)) {
+        toast.error('Discount price must be greater than 0 and less than the price')
+        return
+      }
+      payload = {
+        ...form,
+        price,
+        salePrice: sale, // null = no discount
+        sizes: null,
+        image: form.image || fallbackImage,
+      }
     }
-    const payload = {
-      ...form,
-      price,
-      salePrice: sale, // null = no discount
-      image:
-        form.image ||
-        'https://images.unsplash.com/photo-1550547660-d9450f859349?auto=format&fit=crop&w=800&q=80',
-    }
+
     if (editing === 'new') {
       addMenuItem(payload)
       toast.success('Menu item added')
@@ -146,7 +211,15 @@ export default function ManageMenu() {
                     <span className="chip bg-gray-100 text-charcoal/70">{catName(item.category)}</span>
                   </td>
                   <td className="px-4 py-3 font-semibold">
-                    {hasDiscount(item) ? (
+                    {hasSizes(item) ? (
+                      <span>
+                        <span className="text-xs font-normal text-charcoal/40">From </span>
+                        {rs(item.price)}
+                        <span className="ml-1 chip bg-gray-100 text-charcoal/60">
+                          {item.sizes.length} sizes
+                        </span>
+                      </span>
+                    ) : hasDiscount(item) ? (
                       <span className="flex items-center gap-2">
                         <span className="text-green-600">{rs(item.salePrice)}</span>
                         <span className="text-xs font-normal text-charcoal/40 line-through">
@@ -258,7 +331,7 @@ export default function ManageMenu() {
                 <select
                   className="input"
                   value={form.category}
-                  onChange={(e) => setForm({ ...form, category: e.target.value })}
+                  onChange={(e) => onCategoryChange(e.target.value)}
                 >
                   {categories.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -267,35 +340,96 @@ export default function ManageMenu() {
                   ))}
                 </select>
               </div>
-              <div>
-                <label className="label">Price (Rs.)</label>
+              {/* Sizes toggle */}
+              <label className="flex items-center gap-2 text-sm font-semibold sm:col-span-2">
                 <input
-                  type="number"
-                  min="0"
-                  className="input"
-                  value={form.price}
-                  onChange={(e) => setForm({ ...form, price: e.target.value })}
-                  placeholder="550"
+                  type="checkbox"
+                  checked={sizesOn}
+                  onChange={(e) => toggleSizes(e.target.checked)}
+                  className="h-4 w-4 rounded accent-brand-500"
                 />
-              </div>
-              <div>
-                <label className="label">
-                  Discount Price (Rs.) <span className="font-normal text-charcoal/40">— optional</span>
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  className="input"
-                  value={form.salePrice ?? ''}
-                  onChange={(e) => setForm({ ...form, salePrice: e.target.value })}
-                  placeholder="e.g. 450"
-                />
-                {hasDiscount({ price: Number(form.price), salePrice: Number(form.salePrice) }) && (
-                  <p className="mt-1 text-xs font-semibold text-green-600">
-                    {discountPercent({ price: Number(form.price), salePrice: Number(form.salePrice) })}% off
-                  </p>
-                )}
-              </div>
+                This item has sizes (e.g. pizza — Small / Large / Extra Large)
+              </label>
+
+              {!sizesOn && (
+                <>
+                  <div>
+                    <label className="label">Price (Rs.)</label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="input"
+                      value={form.price}
+                      onChange={(e) => setForm({ ...form, price: e.target.value })}
+                      placeholder="550"
+                    />
+                  </div>
+                  <div>
+                    <label className="label">
+                      Discount Price (Rs.){' '}
+                      <span className="font-normal text-charcoal/40">— optional</span>
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      className="input"
+                      value={form.salePrice ?? ''}
+                      onChange={(e) => setForm({ ...form, salePrice: e.target.value })}
+                      placeholder="e.g. 450"
+                    />
+                    {hasDiscount({ price: Number(form.price), salePrice: Number(form.salePrice) }) && (
+                      <p className="mt-1 text-xs font-semibold text-green-600">
+                        {discountPercent({
+                          price: Number(form.price),
+                          salePrice: Number(form.salePrice),
+                        })}
+                        % off
+                      </p>
+                    )}
+                  </div>
+                </>
+              )}
+
+              {sizesOn && (
+                <div className="sm:col-span-2">
+                  <label className="label">Sizes & Prices</label>
+                  <div className="space-y-2">
+                    {form.sizes.map((s, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <input
+                          className="input flex-1"
+                          value={s.name}
+                          onChange={(e) => updateSize(i, { name: e.target.value })}
+                          placeholder="Size name (e.g. Large)"
+                        />
+                        <input
+                          type="number"
+                          min="0"
+                          className="input w-28"
+                          value={s.price}
+                          onChange={(e) => updateSize(i, { price: e.target.value })}
+                          placeholder="Price"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeSize(i)}
+                          className="flex h-9 w-9 flex-none items-center justify-center rounded-lg text-red-500 ring-1 ring-red-200 hover:bg-red-50"
+                          aria-label="Remove size"
+                        >
+                          <Trash className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={addSize}
+                    className="btn-ghost mt-2 text-sm"
+                  >
+                    <Plus className="h-4 w-4" /> Add Size
+                  </button>
+                </div>
+              )}
               <div className="sm:col-span-2">
                 <label className="label">Description</label>
                 <textarea

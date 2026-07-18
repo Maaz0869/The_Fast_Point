@@ -13,6 +13,9 @@ const navItems = [
   { to: '/admin/discounts', label: 'Discount Codes', icon: '🎟️' },
   { to: '/admin/slider', label: 'Hero Slider', icon: '🖼️' },
   { to: '/admin/delivery', label: 'Delivery Rules', icon: '🛵' },
+  { to: '/admin/expenses', label: 'Expenses', icon: '💸' },
+  { to: '/admin/suppliers', label: 'Suppliers & Udhaar', icon: '🤝' },
+  { to: '/admin/businesses', label: 'Businesses (P&L)', icon: '🏢' },
   { to: '/admin/settings', label: 'Settings', icon: '⚙️' },
 ]
 
@@ -44,7 +47,7 @@ export default function AdminLayout() {
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500 text-sm">
               🍔
             </span>
-            <span className="font-display font-bold">Snack Hut</span>
+            <span className="truncate font-display font-bold">{restaurant.name}</span>
           </Link>
           <button onClick={() => setSidebarOpen(false)} className="lg:hidden" aria-label="Close menu">
             <Close className="h-5 w-5" />

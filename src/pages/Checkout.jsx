@@ -21,19 +21,21 @@ const PAYMENTS = [
 
 export default function Checkout() {
   const { items, subtotal, count, clearCart } = useCart()
-  const { calcDeliveryFee, findDiscount, placeOrder, restaurant } = useStore()
+  const { calcDeliveryFee, deliveryRules, findDiscount, placeOrder, restaurant } = useStore()
   const toast = useToast()
   const navigate = useNavigate()
 
   const [orderType, setOrderType] = useState('Delivery')
   const [customer, setCustomer] = useState({ name: '', phone: '', address: '' })
+  const [distanceKm, setDistanceKm] = useState('')
   const [payment, setPayment] = useState('Cash on Delivery')
   const [codeInput, setCodeInput] = useState('')
   const [applied, setApplied] = useState(null)
   const [errors, setErrors] = useState({})
   const [placing, setPlacing] = useState(false)
 
-  const deliveryFee = calcDeliveryFee(subtotal, orderType)
+  const distanceMode = deliveryRules.mode === 'distance'
+  const deliveryFee = calcDeliveryFee(subtotal, orderType, distanceKm)
 
   const discount = useMemo(() => {
     if (!applied) return 0
@@ -76,6 +78,8 @@ export default function Checkout() {
     if (!customer.phone.trim()) e.phone = 'Phone number is required'
     else if (!/^[0-9+\-\s]{7,}$/.test(customer.phone.trim())) e.phone = 'Enter a valid phone number'
     if (orderType === 'Delivery' && !customer.address.trim()) e.address = 'Delivery address is required'
+    if (orderType === 'Delivery' && distanceMode && (distanceKm === '' || Number(distanceKm) < 0))
+      e.distance = 'Please enter the delivery distance'
     setErrors(e)
     return Object.keys(e).length === 0
   }
@@ -96,6 +100,7 @@ export default function Checkout() {
     })),
     subtotal,
     deliveryFee,
+    ...(orderType === 'Delivery' && distanceMode ? { deliveryDistanceKm: Number(distanceKm) || 0 } : {}),
     discount,
     discountCode: applied?.code || null,
     total,
@@ -113,6 +118,8 @@ export default function Checkout() {
       return
     }
     setPlacing(true)
+    // Record the order first so the WhatsApp message can carry the order number.
+    const record = placeOrder(buildOrderPayload())
     const message = buildOrderMessage({
       items: itemsForMsg(items),
       orderType,
@@ -121,6 +128,9 @@ export default function Checkout() {
       deliveryFee,
       discount,
       total,
+      payment,
+      orderId: record.id,
+      shopName: restaurant.name,
     })
     // Send the order straight to the shop's WhatsApp — the customer never
     // leaves the site. Falls back to opening WhatsApp only if no auto-send key
@@ -130,7 +140,6 @@ export default function Checkout() {
     } else {
       window.open(buildWhatsappLink(restaurant.whatsapp, message), '_blank')
     }
-    const record = placeOrder(buildOrderPayload())
     clearCart()
     setPlacing(false)
     toast.success('Order placed successfully! 🎉')
@@ -152,7 +161,7 @@ export default function Checkout() {
                   type="button"
                   key={t.id}
                   onClick={() => setOrderType(t.id)}
-                  className={`rounded-2xl border-2 p-4 text-center transition ${
+                  className={`rounded-2xl border-2 p-4 text-center transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 ${
                     orderType === t.id
                       ? 'border-brand-500 bg-brand-50'
                       : 'border-black/10 hover:border-brand-300'
@@ -198,6 +207,32 @@ export default function Checkout() {
                   </Field>
                 </div>
               )}
+              {orderType === 'Delivery' && distanceMode && (
+                <div className="sm:col-span-2">
+                  <Field label="Distance from restaurant (km)" error={errors.distance}>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.5"
+                      className="input"
+                      value={distanceKm}
+                      onChange={(e) => setDistanceKm(e.target.value)}
+                      placeholder="e.g. 4"
+                    />
+                  </Field>
+                  <p className="mt-1 text-xs text-charcoal/45">
+                    Delivery fee depends on distance.{' '}
+                    <a
+                      href={restaurant.mapUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="font-semibold text-brand-600 hover:underline"
+                    >
+                      Check distance on Google Maps →
+                    </a>
+                  </p>
+                </div>
+              )}
             </div>
             {orderType !== 'Delivery' && (
               <p className="mt-3 rounded-lg bg-brand-50 p-3 text-xs text-brand-700">
@@ -217,7 +252,7 @@ export default function Checkout() {
                   type="button"
                   key={p.id}
                   onClick={() => setPayment(p.id)}
-                  className={`flex items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition ${
+                  className={`flex items-center gap-3 rounded-xl border-2 px-4 py-3 text-left transition focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-400 focus-visible:ring-offset-2 ${
                     payment === p.id ? 'border-brand-500 bg-brand-50' : 'border-black/10 hover:border-brand-300'
                   }`}
                 >
@@ -265,9 +300,14 @@ export default function Checkout() {
                 Apply
               </button>
             </div>
-            {applied && (
+            {applied && discount > 0 && (
               <p className="mt-2 text-xs font-semibold text-emerald-600">
                 ✓ {applied.code} — {applied.description}
+              </p>
+            )}
+            {applied && discount === 0 && (
+              <p className="mt-2 text-xs font-semibold text-amber-600">
+                Add {rs(applied.minOrder)} minimum to use {applied.code}
               </p>
             )}
 
@@ -325,12 +365,14 @@ function itemsForMsg(items) {
 }
 
 function Field({ label, error, children }) {
+  // Nesting the control inside the <label> associates them implicitly, so
+  // clicking the label focuses the field and screen readers announce the pair.
   return (
-    <div>
-      <label className="label">{label}</label>
+    <label className="block">
+      <span className="label">{label}</span>
       {children}
       {error && <p className="mt-1 text-xs font-medium text-red-500">{error}</p>}
-    </div>
+    </label>
   )
 }
 

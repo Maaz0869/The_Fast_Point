@@ -45,6 +45,7 @@ export default function Menu() {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search for burgers, pizza, fries…"
+            aria-label="Search menu"
             className="input pl-12"
           />
         </div>

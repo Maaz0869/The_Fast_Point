@@ -1,14 +1,27 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 
 // ---------------------------------------------------------------------------
 // CartContext manages the shopping cart. Each line item carries its base item
 // plus chosen extras + spice level, and a pre-computed unit price so quantity
-// maths stays simple.
+// maths stays simple. The cart is persisted to localStorage so it survives a
+// page refresh or WhatsApp/tab switch during checkout.
 // ---------------------------------------------------------------------------
 
 const CartContext = createContext(null)
 
 export const useCart = () => useContext(CartContext)
+
+const CART_KEY = 'snackhut_cart_v1'
+
+const loadCart = () => {
+  try {
+    const raw = localStorage.getItem(CART_KEY)
+    const parsed = raw ? JSON.parse(raw) : null
+    return Array.isArray(parsed) ? parsed : []
+  } catch {
+    return []
+  }
+}
 
 const lineId = () => Math.random().toString(36).slice(2, 10)
 
@@ -16,11 +29,21 @@ const lineId = () => Math.random().toString(36).slice(2, 10)
 // re-adding an identical config just bumps the quantity.
 const sameConfig = (a, b) =>
   a.itemId === b.itemId &&
+  a.sizeId === b.sizeId &&
   a.spice === b.spice &&
   a.extras.map((e) => e.id).sort().join(',') === b.extras.map((e) => e.id).sort().join(',')
 
 export function CartProvider({ children }) {
-  const [items, setItems] = useState([])
+  const [items, setItems] = useState(loadCart)
+
+  // Persist on every change (wrapped so storage quota/privacy mode can't crash).
+  useEffect(() => {
+    try {
+      localStorage.setItem(CART_KEY, JSON.stringify(items))
+    } catch {
+      /* storage unavailable — cart stays in-memory */
+    }
+  }, [items])
 
   const addItem = useCallback((config) => {
     // config: { itemId, name, image, basePrice, extras:[{id,name,price}], spice, spiceLabel, unitPrice, qty }

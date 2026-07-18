@@ -11,9 +11,10 @@ export default function HeroSlider() {
   const goto = useCallback((i) => setCurrent(((i % count) + count) % count), [count])
   const next = useCallback(() => setCurrent((c) => (c + 1) % count), [count])
 
-  // Auto-play
+  // Auto-play — skipped for users who prefer reduced motion.
   useEffect(() => {
     if (count <= 1) return
+    if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return
     timer.current = setInterval(next, 5000)
     return () => clearInterval(timer.current)
   }, [next, count])

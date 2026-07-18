@@ -1,12 +1,13 @@
 import { Link, useLocation, useParams } from 'react-router-dom'
 import { useStore } from '../context/StoreContext.jsx'
 import { rs, formatDateTime } from '../utils/format.js'
+import { printOrderInvoice } from '../utils/invoice.js'
 import { Check } from '../components/Icons.jsx'
 
 export default function OrderConfirmation() {
   const { id } = useParams()
   const location = useLocation()
-  const { findOrder } = useStore()
+  const { findOrder, restaurant } = useStore()
 
   // Prefer the freshly-placed order passed via navigation state, else look up.
   const order = location.state?.order || findOrder(id)
@@ -31,8 +32,8 @@ export default function OrderConfirmation() {
         </div>
         <h1 className="mt-6 font-display text-3xl font-extrabold">Order Confirmed! 🎉</h1>
         <p className="mt-2 text-charcoal/55">
-          Thanks {order.customer.name.split(' ')[0]}! Your order has been received and is being
-          prepared.
+          Thanks {order.customer?.name?.split(' ')[0] ?? 'there'}! Your order has been received and
+          is being prepared.
         </p>
         <div className="mt-5 inline-flex flex-col items-center rounded-2xl bg-brand-50 px-8 py-4">
           <span className="text-xs font-semibold uppercase tracking-wider text-brand-600">
@@ -54,9 +55,9 @@ export default function OrderConfirmation() {
         <div className="grid gap-4 py-4 sm:grid-cols-2">
           <Detail label="Order Type" value={order.orderType} />
           <Detail label="Payment" value={order.payment} />
-          <Detail label="Name" value={order.customer.name} />
-          <Detail label="Phone" value={order.customer.phone} />
-          {order.customer.address && (
+          <Detail label="Name" value={order.customer?.name} />
+          <Detail label="Phone" value={order.customer?.phone} />
+          {order.customer?.address && (
             <div className="sm:col-span-2">
               <Detail label="Delivery Address" value={order.customer.address} />
             </div>
@@ -96,6 +97,12 @@ export default function OrderConfirmation() {
       </div>
 
       <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+        <button
+          onClick={() => printOrderInvoice(order, restaurant)}
+          className="btn-dark flex-1"
+        >
+          ⬇️ Download Invoice
+        </button>
         <Link to={`/track?order=${order.id}`} className="btn-outline flex-1">
           Track My Order
         </Link>

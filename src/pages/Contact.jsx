@@ -46,7 +46,7 @@ export default function Contact() {
             text={restaurant.hours.map((h) => `${h.day}: ${h.time}`).join(' · ')}
           />
           <a
-            href={buildWhatsappLink(restaurant.whatsapp, 'Hi! I have a question about The Snack Hut.')}
+            href={buildWhatsappLink(restaurant.whatsapp, `Hi! I have a question about ${restaurant.name}.`)}
             target="_blank"
             rel="noreferrer"
             className="btn w-full bg-[#25D366] text-white hover:brightness-95"

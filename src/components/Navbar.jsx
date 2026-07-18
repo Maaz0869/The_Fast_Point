@@ -4,7 +4,7 @@ import { useCart } from '../context/CartContext.jsx'
 import { useStore } from '../context/StoreContext.jsx'
 import { useTheme } from '../context/ThemeContext.jsx'
 import ThemePicker from './ThemePicker.jsx'
-import { Cart, Menu as MenuIcon, Close, Sun, Moon } from './Icons.jsx'
+import { Cart, Menu as MenuIcon, Close, Sun, Moon, User } from './Icons.jsx'
 
 const links = [
   { to: '/', label: 'Home' },
@@ -21,6 +21,11 @@ export default function Navbar() {
   const [open, setOpen] = useState(false)
   const location = useLocation()
 
+  // Show the shop name from the store, with the last word accented.
+  const nameParts = (restaurant.name || 'The Snack Hut').trim().split(' ')
+  const lastWord = nameParts.pop()
+  const leadWords = nameParts.join(' ')
+
   return (
     <header className="sticky top-0 z-50 border-b border-black/5 bg-cream/90 backdrop-blur-md">
       <nav className="section flex h-16 items-center justify-between gap-4">
@@ -28,11 +33,12 @@ export default function Navbar() {
         <Link to="/" className="flex items-center gap-2" onClick={() => setOpen(false)}>
           <img
             src="/logo.png"
-            alt="The Snack Hut"
+            alt={restaurant.name}
             className="h-9 w-9 rounded-xl object-cover shadow-md shadow-brand-500/30"
           />
           <span className="font-display text-lg font-bold leading-tight tracking-tight">
-            The Snack <span className="text-brand-500">Hut</span>
+            {leadWords && `${leadWords} `}
+            <span className="text-brand-500">{lastWord}</span>
           </span>
         </Link>
 
@@ -83,10 +89,17 @@ export default function Navbar() {
               </span>
             )}
           </Link>
+          <Link
+            to="/admin"
+            className="hidden items-center gap-1.5 rounded-full bg-brand-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-600 sm:flex"
+          >
+            <User className="h-4 w-4" /> Login
+          </Link>
           <button
             onClick={() => setOpen((o) => !o)}
             className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-card ring-1 ring-black/5 md:hidden"
-            aria-label="Menu"
+            aria-label={open ? 'Close menu' : 'Open menu'}
+            aria-expanded={open}
           >
             {open ? <Close className="h-5 w-5" /> : <MenuIcon className="h-5 w-5" />}
           </button>
@@ -120,6 +133,15 @@ export default function Navbar() {
                 className="block rounded-xl px-4 py-3 text-sm font-semibold text-charcoal/70 hover:bg-black/5"
               >
                 Track Order
+              </Link>
+            </li>
+            <li>
+              <Link
+                to="/admin"
+                onClick={() => setOpen(false)}
+                className="flex items-center gap-2 rounded-xl bg-brand-500 px-4 py-3 text-sm font-semibold text-white"
+              >
+                <User className="h-4 w-4" /> Login
               </Link>
             </li>
           </ul>

@@ -1,4 +1,4 @@
-import { rs, hasDiscount, discountPercent } from '../utils/format.js'
+import { rs, hasDiscount, hasSizes, startingPrice, discountPercent } from '../utils/format.js'
 import { Plus, Star } from './Icons.jsx'
 
 // A single menu item card. Clicking "Add" opens the customization modal
@@ -19,7 +19,7 @@ export default function MenuItemCard({ item, onCustomize }) {
           </span>
         )}
         {hasDiscount(item) && (
-          <span className="chip absolute right-3 top-3 bg-green-500 text-white shadow">
+          <span className="chip absolute right-3 top-3 bg-emerald-500 text-white shadow">
             -{discountPercent(item)}%
           </span>
         )}
@@ -30,7 +30,14 @@ export default function MenuItemCard({ item, onCustomize }) {
         </div>
         <p className="mt-1 line-clamp-2 flex-1 text-sm text-charcoal/55">{item.description}</p>
         <div className="mt-4 flex items-center justify-between">
-          {hasDiscount(item) ? (
+          {hasSizes(item) ? (
+            <span className="flex items-baseline gap-1">
+              <span className="text-xs text-charcoal/40">From</span>
+              <span className="font-display text-lg font-bold text-brand-600">
+                {rs(startingPrice(item))}
+              </span>
+            </span>
+          ) : hasDiscount(item) ? (
             <span className="flex items-baseline gap-2">
               <span className="font-display text-lg font-bold text-brand-600">
                 {rs(item.salePrice)}

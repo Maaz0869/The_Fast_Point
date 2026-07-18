@@ -76,7 +76,6 @@ export default function TrackOrder() {
 
           {/* Progress tracker */}
           <div className="py-8">
-            {result.status === 'Delivered' ? null : null}
             <ol className="relative ml-3 border-l-2 border-dashed border-black/10">
               {orderStatuses.map((status, i) => {
                 const done = i <= currentStep

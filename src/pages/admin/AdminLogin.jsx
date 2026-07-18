@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext.jsx'
+import { useStore } from '../../context/StoreContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 
 export default function AdminLogin() {
   const { isAdmin, login, demo } = useAuth()
+  const { restaurant } = useStore()
   const toast = useToast()
   const navigate = useNavigate()
   const [form, setForm] = useState({ username: '', password: '' })
@@ -30,7 +32,7 @@ export default function AdminLogin() {
           <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-500 text-lg">
             🍔
           </span>
-          <span className="font-display text-xl font-bold">The Snack Hut</span>
+          <span className="font-display text-xl font-bold">{restaurant.name}</span>
         </Link>
 
         <div className="animate-scale-in rounded-2xl bg-white p-7 shadow-2xl">

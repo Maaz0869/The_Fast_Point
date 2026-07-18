@@ -51,27 +51,44 @@ export const MENU_ITEMS = [
     id: 'm4',
     name: 'Pepperoni Pizza',
     category: 'pizza',
-    price: 950,
-    salePrice: 799,
+    price: 799,
     description: 'Loaded pepperoni, mozzarella & our signature tomato base.',
     image: img('1628840042765-356cda07504e'),
     bestSeller: true,
+    sizes: [
+      { id: 'small', name: 'Small', price: 799 },
+      { id: 'medium', name: 'Medium', price: 970 },
+      { id: 'large', name: 'Large', price: 1150 },
+      { id: 'xl', name: 'Extra Large', price: 1450 },
+    ],
   },
   {
     id: 'm5',
     name: 'Chicken Tikka Pizza',
     category: 'pizza',
-    price: 1050,
+    price: 899,
     description: 'Spiced chicken tikka, onions, capsicum & extra cheese.',
     image: img('1513104890138-7c749659a591'),
+    sizes: [
+      { id: 'small', name: 'Small', price: 899 },
+      { id: 'medium', name: 'Medium', price: 1075 },
+      { id: 'large', name: 'Large', price: 1250 },
+      { id: 'xl', name: 'Extra Large', price: 1550 },
+    ],
   },
   {
     id: 'm6',
     name: 'Veggie Supreme Pizza',
     category: 'pizza',
-    price: 880,
+    price: 780,
     description: 'Mushrooms, olives, capsicum, onion & sweet corn.',
     image: img('1565299624946-b28f40a0ae38'),
+    sizes: [
+      { id: 'small', name: 'Small', price: 780 },
+      { id: 'medium', name: 'Medium', price: 930 },
+      { id: 'large', name: 'Large', price: 1080 },
+      { id: 'xl', name: 'Extra Large', price: 1380 },
+    ],
   },
   {
     id: 'm7',
@@ -246,13 +263,22 @@ export const DISCOUNT_CODES = [
 // Delivery fee rules. `charge` applies when the order subtotal is BELOW
 // `freeAbove`; at or above `freeAbove` delivery is free.
 export const DELIVERY_RULES = {
-  freeAbove: 1500,
-  charge: 120,
-  // Optional tiered rules (subtotal < upTo → charge). Evaluated in order.
+  // 'distance' → fee by km from the shop; 'order' → fee by order subtotal.
+  mode: 'distance',
+  freeAbove: 1500, // free delivery when subtotal >= this (0 = disabled)
+  charge: 120, // fallback charge when nothing else matches
+  // Order-total tiers (subtotal < upTo → charge). Used in 'order' mode.
   tiers: [
     { upTo: 500, charge: 150 },
     { upTo: 1500, charge: 100 },
   ],
+  // Distance tiers (km <= uptoKm → charge). Used in 'distance' mode.
+  distanceTiers: [
+    { uptoKm: 3, charge: 50 },
+    { uptoKm: 6, charge: 100 },
+    { uptoKm: 10, charge: 180 },
+  ],
+  distanceBeyond: 250, // charge when farther than the last tier
 }
 
 export const RESTAURANT = {
@@ -266,8 +292,8 @@ export const RESTAURANT = {
   // +34 644 44 21 07 and it replies with your apikey.
   callmebotApiKey: '',
   email: 'hello@thesnackhut.pk',
-  address: 'Barikot, Swat — near Daewoo Adda',
-  mapUrl: 'https://www.google.com/maps/search/?api=1&query=Barikot+Swat+near+Daewoo+Adda',
+  address: 'The Snack Hut Barikot',
+  mapUrl: 'https://www.google.com/maps/search/?api=1&query=The+Snack+Hut+Barikot',
   isOpen: true,
   hours: [
     { day: 'Monday – Thursday', time: '12:00 PM – 12:00 AM' },
@@ -317,5 +343,123 @@ export const SEED_ORDERS = [
     total: 855,
     payment: 'Card',
     status: 'Delivered',
+  },
+]
+
+// Categories used when recording a business expense.
+export const EXPENSE_CATEGORIES = [
+  'Ingredients / Stock',
+  'Rent',
+  'Utilities (Electricity/Gas/Water)',
+  'Salaries / Wages',
+  'Packaging',
+  'Marketing',
+  'Maintenance / Repairs',
+  'Transport / Fuel',
+  'Other',
+]
+
+// General business expenses (kharche) shown in the Expenses report.
+export const SEED_EXPENSES = [
+  {
+    id: 'exp1001',
+    date: '2026-07-15',
+    category: 'Utilities (Electricity/Gas/Water)',
+    description: 'Electricity bill — July',
+    paidTo: 'PESCO',
+    method: 'Cash',
+    amount: 18500,
+  },
+  {
+    id: 'exp1002',
+    date: '2026-07-13',
+    category: 'Packaging',
+    description: 'Burger boxes & bags (500 pcs)',
+    paidTo: 'Swat Packaging',
+    method: 'Cash',
+    amount: 9200,
+  },
+]
+
+// Income categories used inside a business account's profit/loss ledger.
+export const INCOME_CATEGORIES = ['Sales', 'Services', 'Catering', 'Other Income']
+
+// Separate business accounts (multiple kaam). Each keeps its own income +
+// expense entries so you can see whether that business is in profit or loss,
+// and a day-by-day record. net = totalIncome − totalExpense.
+export const SEED_BUSINESSES = [
+  {
+    id: 'biz1001',
+    name: 'The Snack Hut (Main)',
+    note: 'Barikot branch',
+    createdAt: '2026-06-01T10:00:00',
+    entries: [
+      {
+        id: 'be1001',
+        date: '2026-07-15',
+        type: 'income',
+        category: 'Sales',
+        description: 'Daily counter sales',
+        amount: 42000,
+      },
+      {
+        id: 'be1002',
+        date: '2026-07-15',
+        type: 'expense',
+        category: 'Ingredients / Stock',
+        description: 'Vegetables & buns',
+        amount: 9500,
+      },
+      {
+        id: 'be1003',
+        date: '2026-07-14',
+        type: 'income',
+        category: 'Sales',
+        description: 'Daily counter sales',
+        amount: 38000,
+      },
+      {
+        id: 'be1004',
+        date: '2026-07-14',
+        type: 'expense',
+        category: 'Salaries / Wages',
+        description: 'Staff daily wage',
+        amount: 6000,
+      },
+    ],
+  },
+]
+
+// Supplier accounts. Each keeps a ledger of purchases (udhaar — increases what
+// we owe) and payments (paisay diye — reduces what we owe). Balance =
+// openingBalance + purchases − payments. A positive balance means we still owe
+// the supplier that amount.
+export const SEED_SUPPLIERS = [
+  {
+    id: 'sup1001',
+    name: 'Khan Meat Suppliers',
+    company: 'Khan & Sons',
+    phone: '0301 2345678',
+    address: 'Mingora Main Bazaar, Swat',
+    note: 'Beef & chicken — delivers every Monday.',
+    openingBalance: 0,
+    createdAt: '2026-06-01T10:00:00',
+    ledger: [
+      {
+        id: 'txn1001',
+        date: '2026-07-05',
+        type: 'purchase',
+        invoiceNo: 'KMS-221',
+        description: '40 kg beef @ 1200/kg',
+        amount: 48000,
+      },
+      {
+        id: 'txn1002',
+        date: '2026-07-10',
+        type: 'payment',
+        description: 'Cash payment',
+        amount: 30000,
+      },
+    ],
   },
 ]

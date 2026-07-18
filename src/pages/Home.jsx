@@ -19,7 +19,7 @@ export default function Home() {
       <HeroSlider />
 
       {/* Feature strip */}
-      <div className="bg-white">
+      <div className="band">
         <div className="section grid grid-cols-2 gap-4 py-8 md:grid-cols-4">
           {[
             { icon: '🚀', title: 'Fast Delivery', text: '30 min or less' },
@@ -62,26 +62,27 @@ export default function Home() {
       </section>
 
       {/* Best sellers */}
-      <section className="section pb-14">
-        <div className="mb-8 flex items-end justify-between">
-          <SectionHeading
-            eyebrow="Fan Favourites"
-            title="Best Sellers"
-            align="left"
-          />
-          <Link to="/menu" className="hidden text-sm font-semibold text-brand-600 hover:underline sm:block">
-            View full menu →
-          </Link>
-        </div>
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-          {bestSellers.map((item) => (
-            <MenuItemCard key={item.id} item={item} onCustomize={setModalItem} />
-          ))}
-        </div>
-      </section>
+      {bestSellers.length > 0 && (
+        <section className="section pb-14">
+          <div className="mb-8 flex items-end justify-between">
+            <SectionHeading eyebrow="Fan Favourites" title="Best Sellers" align="left" />
+            <Link
+              to="/menu"
+              className="text-sm font-semibold text-brand-600 hover:underline"
+            >
+              View full menu →
+            </Link>
+          </div>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+            {bestSellers.map((item) => (
+              <MenuItemCard key={item.id} item={item} onCustomize={setModalItem} />
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Deals CTA */}
-      <section className="bg-white py-14">
+      <section className="band py-14">
         <div className="section">
           <div className="mb-8 flex items-end justify-between">
             <SectionHeading eyebrow="Save More" title="Hot Deals & Combos" align="left" />
