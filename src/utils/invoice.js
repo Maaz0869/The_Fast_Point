@@ -250,6 +250,7 @@ export function printOrderInvoice(order, restaurant) {
     <div class="lbl">Billed To</div>
     <div class="name">${esc(order.customer?.name) || 'Walk-in Customer'}</div>
     ${order.customer?.phone ? `<p>Ph: ${esc(order.customer.phone)}</p>` : ''}
+    ${order.customer?.area ? `<p>Area: ${esc(order.customer.area)}</p>` : ''}
     ${order.customer?.address ? `<p>${esc(order.customer.address)}</p>` : ''}
     <p>Order Type: ${esc(order.orderType)} &nbsp;·&nbsp; Payment: ${esc(order.payment)}</p>
   </div>

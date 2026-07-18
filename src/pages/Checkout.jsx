@@ -28,6 +28,7 @@ export default function Checkout() {
   const [orderType, setOrderType] = useState('Delivery')
   const [customer, setCustomer] = useState({ name: '', phone: '', address: '' })
   const [distanceKm, setDistanceKm] = useState('')
+  const [areaId, setAreaId] = useState('')
   const [payment, setPayment] = useState('Cash on Delivery')
   const [codeInput, setCodeInput] = useState('')
   const [applied, setApplied] = useState(null)
@@ -35,7 +36,13 @@ export default function Checkout() {
   const [placing, setPlacing] = useState(false)
 
   const distanceMode = deliveryRules.mode === 'distance'
-  const deliveryFee = calcDeliveryFee(subtotal, orderType, distanceKm)
+  const zoneMode = deliveryRules.mode === 'zone'
+  const areas = deliveryRules.areas || []
+  const selectedArea = areas.find((a) => a.id === areaId) || null
+  // In zone mode we don't charge (or show) a fee until the customer picks their
+  // area, so the total never shows a misleading fallback charge up front.
+  const zoneUnset = orderType === 'Delivery' && zoneMode && areas.length > 0 && !areaId
+  const deliveryFee = zoneUnset ? 0 : calcDeliveryFee(subtotal, orderType, distanceKm, areaId)
 
   const discount = useMemo(() => {
     if (!applied) return 0
@@ -78,6 +85,8 @@ export default function Checkout() {
     if (!customer.phone.trim()) e.phone = 'Phone number is required'
     else if (!/^[0-9+\-\s]{7,}$/.test(customer.phone.trim())) e.phone = 'Enter a valid phone number'
     if (orderType === 'Delivery' && !customer.address.trim()) e.address = 'Delivery address is required'
+    if (orderType === 'Delivery' && zoneMode && areas.length > 0 && !areaId)
+      e.area = 'Please select your delivery area'
     if (orderType === 'Delivery' && distanceMode && (distanceKm === '' || Number(distanceKm) < 0))
       e.distance = 'Please enter the delivery distance'
     setErrors(e)
@@ -88,7 +97,7 @@ export default function Checkout() {
     orderType,
     customer:
       orderType === 'Delivery'
-        ? customer
+        ? { ...customer, ...(selectedArea ? { area: selectedArea.name } : {}) }
         : { name: customer.name, phone: customer.phone },
     items: items.map((l) => ({
       name: line_name(l),
@@ -123,7 +132,7 @@ export default function Checkout() {
     const message = buildOrderMessage({
       items: itemsForMsg(items),
       orderType,
-      customer,
+      customer: { ...customer, ...(selectedArea ? { area: selectedArea.name } : {}) },
       subtotal,
       deliveryFee,
       discount,
@@ -205,6 +214,32 @@ export default function Checkout() {
                       placeholder="House #, street, area, city"
                     />
                   </Field>
+                </div>
+              )}
+              {orderType === 'Delivery' && zoneMode && areas.length > 0 && (
+                <div className="sm:col-span-2">
+                  <Field label="Delivery Area / Place" error={errors.area}>
+                    <select
+                      className="input"
+                      value={areaId}
+                      onChange={(e) => setAreaId(e.target.value)}
+                    >
+                      <option value="">Select your area…</option>
+                      {areas.map((a) => (
+                        <option key={a.id} value={a.id}>
+                          {a.name} — {a.charge === 0 ? 'Free' : rs(a.charge)}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                  {selectedArea && (
+                    <p className="mt-1 text-xs text-charcoal/55">
+                      Delivery to <b>{selectedArea.name}</b>:{' '}
+                      <span className="font-semibold text-brand-600">
+                        {selectedArea.charge === 0 ? 'Free' : rs(selectedArea.charge)}
+                      </span>
+                    </p>
+                  )}
                 </div>
               )}
               {orderType === 'Delivery' && distanceMode && (
@@ -315,15 +350,25 @@ export default function Checkout() {
               <Row label="Subtotal" value={rs(subtotal)} />
               {discount > 0 && <Row label="Discount" value={`- ${rs(discount)}`} accent="text-emerald-600" />}
               <Row
-                label={orderType === 'Delivery' ? 'Delivery Fee' : 'Delivery'}
+                label={
+                  orderType === 'Delivery'
+                    ? `Delivery Fee${selectedArea ? ` · ${selectedArea.name}` : ''}`
+                    : 'Delivery'
+                }
                 value={
                   orderType !== 'Delivery'
                     ? '—'
+                    : zoneUnset
+                    ? 'Select area'
                     : deliveryFee === 0
                     ? 'Free'
                     : rs(deliveryFee)
                 }
-                accent={deliveryFee === 0 && orderType === 'Delivery' ? 'text-emerald-600' : ''}
+                accent={
+                  !zoneUnset && deliveryFee === 0 && orderType === 'Delivery'
+                    ? 'text-emerald-600'
+                    : ''
+                }
               />
               <div className="my-1 border-t border-dashed border-black/10" />
               <div className="flex justify-between text-base">

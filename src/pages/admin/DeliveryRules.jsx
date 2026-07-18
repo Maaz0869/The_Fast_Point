@@ -8,9 +8,10 @@ export default function DeliveryRules() {
   const { deliveryRules, setDeliveryRules, calcDeliveryFee } = useStore()
   const toast = useToast()
   const [rules, setRules] = useState(() => ({
-    mode: deliveryRules.mode || 'distance',
+    mode: deliveryRules.mode || 'zone',
     freeAbove: deliveryRules.freeAbove,
     charge: deliveryRules.charge,
+    areas: deliveryRules.areas ? deliveryRules.areas.map((a) => ({ ...a })) : [],
     tiers: deliveryRules.tiers ? deliveryRules.tiers.map((t) => ({ ...t })) : [],
     distanceTiers: deliveryRules.distanceTiers
       ? deliveryRules.distanceTiers.map((t) => ({ ...t }))
@@ -19,6 +20,7 @@ export default function DeliveryRules() {
   }))
   const [preview, setPreview] = useState(800)
   const [previewKm, setPreviewKm] = useState(4)
+  const [previewArea, setPreviewArea] = useState('')
 
   // ---- Order-total tiers ----
   const updateTier = (i, key, val) =>
@@ -42,11 +44,30 @@ export default function DeliveryRules() {
   const removeDist = (i) =>
     setRules((r) => ({ ...r, distanceTiers: r.distanceTiers.filter((_, idx) => idx !== i) }))
 
+  // ---- Delivery areas (jagah) ----
+  const areaId = (name, i) =>
+    (name || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') ||
+    `area-${i}`
+  const updateArea = (i, key, val) =>
+    setRules((r) => {
+      const areas = [...r.areas]
+      areas[i] = { ...areas[i], [key]: val }
+      return { ...r, areas }
+    })
+  const addArea = () =>
+    setRules((r) => ({ ...r, areas: [...r.areas, { id: '', name: '', charge: 0 }] }))
+  const removeArea = (i) =>
+    setRules((r) => ({ ...r, areas: r.areas.filter((_, idx) => idx !== i) }))
+
   const save = () => {
     const clean = {
       mode: rules.mode,
-      freeAbove: Number(rules.freeAbove) || 0,
+      // Zone mode has no free-delivery threshold — the area charge always applies.
+      freeAbove: rules.mode === 'zone' ? 0 : Number(rules.freeAbove) || 0,
       charge: Number(rules.charge) || 0,
+      areas: rules.areas
+        .map((a, i) => ({ id: areaId(a.name, i), name: (a.name || '').trim(), charge: Number(a.charge) || 0 }))
+        .filter((a) => a.name),
       tiers: rules.tiers
         .map((t) => ({ upTo: Number(t.upTo), charge: Number(t.charge) }))
         .filter((t) => t.upTo > 0)
@@ -62,15 +83,21 @@ export default function DeliveryRules() {
   }
 
   const isDistance = rules.mode === 'distance'
+  const isZone = rules.mode === 'zone'
   // Preview uses SAVED rules so admins see live behaviour.
-  const previewFee = calcDeliveryFee(Number(preview) || 0, 'Delivery', Number(previewKm) || 0)
+  const previewFee = calcDeliveryFee(
+    Number(preview) || 0,
+    'Delivery',
+    Number(previewKm) || 0,
+    previewArea,
+  )
 
   return (
     <div className="max-w-3xl">
       <div className="mb-6">
         <h1 className="font-display text-2xl font-extrabold">Delivery Charge Rules</h1>
         <p className="text-sm text-charcoal/55">
-          Charge delivery by distance (km) or by order total.
+          Charge delivery by area (place), by distance (km), or by order total.
         </p>
       </div>
 
@@ -79,6 +106,15 @@ export default function DeliveryRules() {
         <div>
           <label className="label">Charge delivery based on</label>
           <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setRules({ ...rules, mode: 'zone' })}
+              className={`rounded-xl border-2 px-4 py-2.5 text-sm font-semibold transition ${
+                isZone ? 'border-brand-500 bg-brand-50 text-brand-600' : 'border-black/10'
+              }`}
+            >
+              🏘️ Area / Place
+            </button>
             <button
               type="button"
               onClick={() => setRules({ ...rules, mode: 'distance' })}
@@ -102,19 +138,21 @@ export default function DeliveryRules() {
 
         {/* Base rule */}
         <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label className="label">Free delivery above (Rs.)</label>
-            <input
-              type="number"
-              min="0"
-              className="input"
-              value={rules.freeAbove}
-              onChange={(e) => setRules({ ...rules, freeAbove: e.target.value })}
-            />
-            <p className="mt-1 text-xs text-charcoal/45">
-              Orders at or above this subtotal get free delivery (0 = disabled).
-            </p>
-          </div>
+          {!isZone && (
+            <div>
+              <label className="label">Free delivery above (Rs.)</label>
+              <input
+                type="number"
+                min="0"
+                className="input"
+                value={rules.freeAbove}
+                onChange={(e) => setRules({ ...rules, freeAbove: e.target.value })}
+              />
+              <p className="mt-1 text-xs text-charcoal/45">
+                Orders at or above this subtotal get free delivery (0 = disabled).
+              </p>
+            </div>
+          )}
           <div>
             <label className="label">Fallback charge (Rs.)</label>
             <input
@@ -127,6 +165,54 @@ export default function DeliveryRules() {
             <p className="mt-1 text-xs text-charcoal/45">Used when no tier matches.</p>
           </div>
         </div>
+
+        {/* Delivery areas (jagah) */}
+        {isZone && (
+          <div>
+            <div className="mb-2 flex items-center justify-between">
+              <label className="label mb-0">Delivery areas &amp; charges</label>
+              <button onClick={addArea} className="btn-ghost px-3 py-1.5 text-sm">
+                <Plus className="h-4 w-4" /> Add Area
+              </button>
+            </div>
+            <p className="mb-3 text-xs text-charcoal/45">
+              Add every place you deliver to and its charge. Customers pick their area at
+              checkout and see the charge for it.
+            </p>
+            <div className="space-y-2">
+              {rules.areas.length === 0 && (
+                <p className="rounded-xl bg-gray-50 p-3 text-sm text-charcoal/50">
+                  No areas yet — the fallback charge applies to all deliveries.
+                </p>
+              )}
+              {rules.areas.map((a, i) => (
+                <div key={i} className="flex items-center gap-2 rounded-xl bg-gray-50 p-2">
+                  <input
+                    className="input flex-1 py-2"
+                    value={a.name}
+                    onChange={(e) => updateArea(i, 'name', e.target.value)}
+                    placeholder="Area / place name (e.g. Mingora)"
+                  />
+                  <span className="text-sm text-charcoal/60">Rs.</span>
+                  <input
+                    type="number"
+                    min="0"
+                    className="input w-24 py-2"
+                    value={a.charge}
+                    onChange={(e) => updateArea(i, 'charge', e.target.value)}
+                  />
+                  <button
+                    onClick={() => removeArea(i)}
+                    className="flex h-9 w-9 items-center justify-center rounded-lg text-red-500 hover:bg-red-50"
+                    aria-label="Remove area"
+                  >
+                    <Trash className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Distance tiers */}
         {isDistance && (
@@ -266,6 +352,23 @@ export default function DeliveryRules() {
                 onChange={(e) => setPreviewKm(e.target.value)}
               />
               <span className="text-sm text-charcoal/60">km</span>
+            </>
+          )}
+          {deliveryRules.mode === 'zone' && (
+            <>
+              <span className="text-sm text-charcoal/60">Area</span>
+              <select
+                className="input w-44"
+                value={previewArea}
+                onChange={(e) => setPreviewArea(e.target.value)}
+              >
+                <option value="">Select area…</option>
+                {(deliveryRules.areas || []).map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
             </>
           )}
           <span className="text-sm text-charcoal/60">→ fee:</span>

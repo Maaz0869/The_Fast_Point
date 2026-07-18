@@ -8,6 +8,11 @@ dist
 dist-ssr
 *.local
 
+# Local env overrides (anon key already has a safe fallback in src/lib/supabase.js)
+.env
+.env.*
+!.env.example
+
 # Logs
 logs
 *.log

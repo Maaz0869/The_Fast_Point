@@ -263,10 +263,21 @@ export const DISCOUNT_CODES = [
 // Delivery fee rules. `charge` applies when the order subtotal is BELOW
 // `freeAbove`; at or above `freeAbove` delivery is free.
 export const DELIVERY_RULES = {
+  // 'zone'  → fee by the delivery area/place the customer picks (admin-managed);
   // 'distance' → fee by km from the shop; 'order' → fee by order subtotal.
-  mode: 'distance',
-  freeAbove: 1500, // free delivery when subtotal >= this (0 = disabled)
-  charge: 120, // fallback charge when nothing else matches
+  mode: 'zone',
+  freeAbove: 0, // 0 = no free-delivery threshold (area charge always applies)
+  charge: 120, // fallback charge when no area is matched
+  // Delivery areas (jagah). Each place has its own charge. The customer picks
+  // their area at checkout and sees that charge; the admin manages this list.
+  areas: [
+    { id: 'barikot', name: 'Barikot', charge: 40 },
+    { id: 'ghalegay', name: 'Ghalegay', charge: 70 },
+    { id: 'shamozai', name: 'Shamozai', charge: 90 },
+    { id: 'kanju', name: 'Kanju', charge: 130 },
+    { id: 'mingora', name: 'Mingora', charge: 180 },
+    { id: 'saidu', name: 'Saidu Sharif', charge: 200 },
+  ],
   // Order-total tiers (subtotal < upTo → charge). Used in 'order' mode.
   tiers: [
     { upTo: 500, charge: 150 },

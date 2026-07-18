@@ -274,6 +274,7 @@ export default function Orders() {
               <Detail label="Payment" value={selected.payment} />
               <Detail label="Customer" value={selected.customer?.name} />
               <Detail label="Phone" value={selected.customer?.phone} />
+              {selected.customer?.area && <Detail label="Area" value={selected.customer.area} />}
               {selected.customer?.address && (
                 <div className="sm:col-span-2">
                   <Detail label="Address" value={selected.customer.address} />
@@ -337,6 +338,8 @@ export default function Orders() {
           menu={menu}
           calcDeliveryFee={calcDeliveryFee}
           distanceMode={deliveryRules.mode === 'distance'}
+          zoneMode={deliveryRules.mode === 'zone'}
+          areas={deliveryRules.areas || []}
           onClose={() => setCreating(false)}
           onCreate={(payload, opts) => {
             const record = placeOrder(payload)
@@ -354,19 +357,21 @@ export default function Orders() {
 // ---------------------------------------------------------------------------
 // Manual order builder used by the admin to create walk-in / phone orders.
 // ---------------------------------------------------------------------------
-function NewOrderModal({ menu, calcDeliveryFee, distanceMode, onClose, onCreate }) {
+function NewOrderModal({ menu, calcDeliveryFee, distanceMode, zoneMode, areas = [], onClose, onCreate }) {
   const toast = useToast()
   const [orderType, setOrderType] = useState('Delivery')
   const [customer, setCustomer] = useState({ name: '', phone: '', address: '' })
   const [distanceKm, setDistanceKm] = useState('')
+  const [areaId, setAreaId] = useState('')
   const [payment, setPayment] = useState('Cash on Delivery')
   const [items, setItems] = useState([]) // { name, price, qty }
   const [discount, setDiscount] = useState('')
   const [feeOverride, setFeeOverride] = useState('') // blank = auto
   const [pick, setPick] = useState('')
 
+  const selectedArea = areas.find((a) => a.id === areaId) || null
   const subtotal = items.reduce((s, it) => s + Number(it.price || 0) * Number(it.qty || 0), 0)
-  const autoFee = calcDeliveryFee(subtotal, orderType, distanceKm)
+  const autoFee = calcDeliveryFee(subtotal, orderType, distanceKm, areaId)
   const deliveryFee = feeOverride === '' ? autoFee : Number(feeOverride) || 0
   const disc = Number(discount) || 0
   const total = Math.max(0, subtotal - disc + deliveryFee)
@@ -419,6 +424,7 @@ function NewOrderModal({ menu, calcDeliveryFee, distanceMode, onClose, onCreate 
         customer: {
           name: customer.name.trim(),
           phone: customer.phone.trim(),
+          ...(orderType === 'Delivery' && selectedArea ? { area: selectedArea.name } : {}),
           ...(customer.address.trim() ? { address: customer.address.trim() } : {}),
         },
         items: cleanItems,
@@ -506,6 +512,19 @@ function NewOrderModal({ menu, calcDeliveryFee, distanceMode, onClose, onCreate 
                 onChange={(e) => setCustomer({ ...customer, address: e.target.value })}
                 placeholder="House, street, area…"
               />
+            </div>
+          )}
+          {orderType === 'Delivery' && zoneMode && areas.length > 0 && (
+            <div>
+              <label className="label">Delivery Area</label>
+              <select className="input" value={areaId} onChange={(e) => setAreaId(e.target.value)}>
+                <option value="">Select area…</option>
+                {areas.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name} — {a.charge === 0 ? 'Free' : rs(a.charge)}
+                  </option>
+                ))}
+              </select>
             </div>
           )}
           {orderType === 'Delivery' && distanceMode && (

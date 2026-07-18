@@ -41,6 +41,7 @@ export const buildOrderMessage = ({
   if (payment) lines.push(`Payment: ${payment}`)
   if (customer?.name) lines.push(`Name: ${customer.name}`)
   if (customer?.phone) lines.push(`Phone: ${customer.phone}`)
+  if (customer?.area) lines.push(`Area: ${customer.area}`)
   if (customer?.address) lines.push(`Address: ${customer.address}`)
   lines.push('')
   lines.push(`Subtotal: ${rs(subtotal)}`)
