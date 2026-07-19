@@ -83,6 +83,14 @@ export default function Footer() {
                 {restaurant.phone}
               </a>
             </li>
+            {restaurant.phone2 && (
+              <li className="flex items-center gap-2">
+                <Phone className="h-4 w-4 flex-none text-brand-400" />
+                <a href={`tel:${restaurant.phone2}`} className="hover:text-brand-400">
+                  {restaurant.phone2}
+                </a>
+              </li>
+            )}
           </ul>
         </div>
 

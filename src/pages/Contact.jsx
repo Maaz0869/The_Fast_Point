@@ -40,6 +40,14 @@ export default function Contact() {
             text={restaurant.phone}
             href={`tel:${restaurant.phone}`}
           />
+          {restaurant.phone2 && (
+            <InfoCard
+              icon={<Phone className="h-5 w-5" />}
+              title="Call Us"
+              text={restaurant.phone2}
+              href={`tel:${restaurant.phone2}`}
+            />
+          )}
           <InfoCard
             icon={<Clock className="h-5 w-5" />}
             title="Opening Hours"

@@ -97,6 +97,26 @@ const applyLocationMigration = (rest) => {
   return rest
 }
 
+// Replace the old shipped-default phone/WhatsApp with the current one, and make
+// sure the secondary contact number exists. Like the address migration above,
+// this runs every load but only rewrites values that match a known legacy
+// default — so once the admin sets custom numbers in Settings they're kept.
+const LEGACY_PHONES = new Set(['+92 344 999 0869', '923449990869'])
+const applyContactMigration = (rest) => {
+  if (!rest) return rest
+  let next = rest
+  if (LEGACY_PHONES.has(rest.phone) || LEGACY_PHONES.has(rest.whatsapp)) {
+    next = { ...next, phone: RESTAURANT.phone, whatsapp: RESTAURANT.whatsapp }
+  }
+  if (next.phone2 == null) {
+    next = { ...next, phone2: RESTAURANT.phone2 }
+  }
+  return next
+}
+
+// Run all restaurant-settings migrations in one place.
+const migrateRestaurant = (rest) => applyContactMigration(applyLocationMigration(rest))
+
 export function StoreProvider({ children }) {
   // Read localStorage exactly once (not on every render). Each useState reads
   // this the first time it mounts and never again.
@@ -113,7 +133,7 @@ export function StoreProvider({ children }) {
     ...(saved?.deliveryRules && typeof saved.deliveryRules === 'object' ? saved.deliveryRules : {}),
   }))
   const [restaurant, setRestaurant] = useState(() =>
-    applyLocationMigration(saved?.restaurant ?? RESTAURANT),
+    migrateRestaurant(saved?.restaurant ?? RESTAURANT),
   )
   const [offerBanner, setOfferBanner] = useState(() => saved?.offerBanner ?? OFFER_BANNER)
   const [orderCounter, setOrderCounter] = useState(() =>
@@ -197,7 +217,7 @@ export function StoreProvider({ children }) {
         setSuppliers(data.suppliers)
         setBusinesses(data.businesses)
         if (data.settings.restaurant)
-          setRestaurant(applyLocationMigration(data.settings.restaurant))
+          setRestaurant(migrateRestaurant(data.settings.restaurant))
         if (data.settings.delivery_rules)
           setDeliveryRules((r) => ({ ...r, ...data.settings.delivery_rules }))
         if (data.settings.offer_banner) setOfferBanner(data.settings.offer_banner)
@@ -336,6 +356,10 @@ export function StoreProvider({ children }) {
   const updateOrderStatus = useCallback((id, status) => {
     setOrders((o) => o.map((ord) => (ord.id === id ? { ...ord, status } : ord)))
     save(db.orders.upsert({ id, status }))
+  }, [])
+  const deleteOrder = useCallback((id) => {
+    setOrders((o) => o.filter((ord) => ord.id !== id))
+    save(db.orders.remove(id))
   }, [])
   const findOrder = useCallback(
     (id) => orders.find((o) => o.id.toLowerCase() === String(id).trim().toLowerCase()),
@@ -525,6 +549,7 @@ export function StoreProvider({ children }) {
       calcDeliveryFee,
       placeOrder,
       updateOrderStatus,
+      deleteOrder,
       findOrder,
       setDeliveryRules: saveDeliveryRules,
       setOfferBanner: saveOfferBanner,
@@ -575,6 +600,7 @@ export function StoreProvider({ children }) {
       calcDeliveryFee,
       placeOrder,
       updateOrderStatus,
+      deleteOrder,
       findOrder,
       toggleOpen,
       updateRestaurant,

@@ -295,8 +295,9 @@ export const DELIVERY_RULES = {
 export const RESTAURANT = {
   name: 'The Snack Hut',
   tagline: 'Fresh. Fast. Delicious.',
-  phone: '+92 344 999 0869',
-  whatsapp: '923449990869',
+  phone: '+92 340 963 1994',
+  phone2: '+92 313 963 1894',
+  whatsapp: '923409631994',
   // CallMeBot API key — lets orders auto-send to the WhatsApp number above
   // without the customer opening WhatsApp. Set it from Admin → Settings.
   // Get a free key: WhatsApp "I allow callmebot to send me messages" to
@@ -324,38 +325,9 @@ export const OFFER_BANNER = {
 
 export const ORDER_STATUSES = ['Pending', 'Preparing', 'Out for Delivery', 'Delivered']
 
-// A couple of seed orders so the admin "View Orders" screen isn't empty.
-export const SEED_ORDERS = [
-  {
-    id: 'SH-1042',
-    createdAt: '2026-07-14T18:32:00',
-    orderType: 'Delivery',
-    customer: { name: 'Ali Raza', phone: '0300 1112223', address: 'House 5, DHA Phase 4, Lahore' },
-    items: [
-      { name: 'Classic Beef Burger', qty: 2, price: 550, lineTotal: 1100 },
-      { name: 'Loaded Cheese Fries', qty: 1, price: 350, lineTotal: 350 },
-    ],
-    subtotal: 1450,
-    deliveryFee: 100,
-    discount: 0,
-    total: 1550,
-    payment: 'Cash on Delivery',
-    status: 'Preparing',
-  },
-  {
-    id: 'SH-1043',
-    createdAt: '2026-07-14T19:05:00',
-    orderType: 'Take Away',
-    customer: { name: 'Sara Khan', phone: '0321 4445556' },
-    items: [{ name: 'Pepperoni Pizza', qty: 1, price: 950, lineTotal: 950 }],
-    subtotal: 950,
-    deliveryFee: 0,
-    discount: 95,
-    total: 855,
-    payment: 'Card',
-    status: 'Delivered',
-  },
-]
+// No demo orders — the admin "View Orders" screen starts empty and fills up
+// with real customer orders as they come in.
+export const SEED_ORDERS = []
 
 // Categories used when recording a business expense.
 export const EXPENSE_CATEGORIES = [

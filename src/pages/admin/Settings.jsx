@@ -88,6 +88,15 @@ export default function Settings() {
               />
             </div>
             <div>
+              <label className="label">Phone 2 (secondary contact)</label>
+              <input
+                className="input"
+                value={form.phone2 || ''}
+                onChange={(e) => setForm({ ...form, phone2: e.target.value })}
+                placeholder="+92 313 963 1894"
+              />
+            </div>
+            <div>
               <label className="label">WhatsApp (digits only)</label>
               <input
                 className="input"

@@ -15,6 +15,7 @@ export default function Orders() {
     orders,
     orderStatuses,
     updateOrderStatus,
+    deleteOrder,
     restaurant,
     menu,
     calcDeliveryFee,
@@ -51,6 +52,13 @@ export default function Orders() {
     updateOrderStatus(id, status)
     toast.success(`Order ${id} → ${status}`)
     setSelected((s) => (s && s.id === id ? { ...s, status } : s))
+  }
+
+  const removeOrder = (id) => {
+    if (!window.confirm(`Delete order ${id}? This cannot be undone.`)) return
+    deleteOrder(id)
+    toast.success(`Order ${id} deleted`)
+    setSelected((s) => (s && s.id === id ? null : s))
   }
 
   return (
@@ -190,6 +198,14 @@ export default function Orders() {
                           </option>
                         ))}
                       </select>
+                      <button
+                        onClick={() => removeOrder(o.id)}
+                        className="flex h-8 w-8 flex-none items-center justify-center rounded-lg text-red-500 ring-1 ring-red-200 hover:bg-red-50"
+                        title="Delete order"
+                        aria-label={`Delete order ${o.id}`}
+                      >
+                        <Trash className="h-4 w-4" />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -232,6 +248,13 @@ export default function Orders() {
                       </option>
                     ))}
                   </select>
+                  <button
+                    onClick={() => removeOrder(o.id)}
+                    className="flex h-9 w-9 flex-none items-center justify-center rounded-lg text-red-500 ring-1 ring-red-200 hover:bg-red-50"
+                    aria-label={`Delete order ${o.id}`}
+                  >
+                    <Trash className="h-4 w-4" />
+                  </button>
                 </div>
               </div>
             </div>
@@ -257,9 +280,17 @@ export default function Orders() {
               >
                 ⬇️ Download Invoice
               </button>
-              <button onClick={() => setSelected(null)} className="btn-ghost">
-                Close
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={() => removeOrder(selected.id)}
+                  className="btn-ghost text-red-600 ring-1 ring-red-200 hover:bg-red-50"
+                >
+                  <Trash className="h-4 w-4" /> Delete
+                </button>
+                <button onClick={() => setSelected(null)} className="btn-ghost">
+                  Close
+                </button>
+              </div>
             </div>
           }
         >
