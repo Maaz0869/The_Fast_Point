@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useStore } from '../../context/StoreContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import Modal from '../../components/Modal.jsx'
+import ImageField from '../../components/ImageField.jsx'
 import { Plus, Trash } from '../../components/Icons.jsx'
 
 const blank = {
@@ -159,23 +160,13 @@ export default function ManageSlider() {
                 />
               </div>
             </div>
-            <div>
-              <label className="label">Image URL</label>
-              <input
-                className="input"
-                value={form.image}
-                onChange={(e) => setForm({ ...form, image: e.target.value })}
-                placeholder="https://…"
-              />
-            </div>
-            {form.image && (
-              <img
-                src={form.image}
-                alt="preview"
-                className="h-36 w-full rounded-xl object-cover"
-                onError={(e) => (e.currentTarget.style.display = 'none')}
-              />
-            )}
+            <ImageField
+              value={form.image}
+              onChange={(image) => setForm((f) => ({ ...f, image }))}
+              folder="slider"
+              label="Background Image"
+              hint="Wide landscape images work best here (upload or paste a URL)."
+            />
           </form>
         </Modal>
       )}

@@ -16,6 +16,13 @@ const SUPABASE_ANON_KEY =
   import.meta.env.VITE_SUPABASE_ANON_KEY ||
   'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhycWhmd2Z1a2twY21obWpqenhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzODY0MzAsImV4cCI6MjA5OTk2MjQzMH0.PVMElJxH1wbvx84alE2_Dpz1wgJOegRBlOaNupR_b2o'
 
+// The admin panel signs in through Supabase Auth, so the session has to be
+// persisted (and its access token refreshed) for the login to survive a reload.
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: { persistSession: false },
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: false,
+    storageKey: 'snackhut_auth',
+  },
 })

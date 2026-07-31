@@ -14,13 +14,15 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <BrowserRouter>
       <ThemeProvider>
         <ToastProvider>
-          <StoreProvider>
-            <AuthProvider>
+          {/* AuthProvider sits above StoreProvider: the store decides what it
+              may load (public catalogue vs. admin data) from the auth state. */}
+          <AuthProvider>
+            <StoreProvider>
               <CartProvider>
                 <App />
               </CartProvider>
-            </AuthProvider>
-          </StoreProvider>
+            </StoreProvider>
+          </AuthProvider>
         </ToastProvider>
       </ThemeProvider>
     </BrowserRouter>

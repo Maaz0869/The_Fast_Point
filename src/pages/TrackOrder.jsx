@@ -5,16 +5,27 @@ import { rs, formatDateTime } from '../utils/format.js'
 import { Check } from '../components/Icons.jsx'
 
 export default function TrackOrder() {
-  const { findOrder, orderStatuses } = useStore()
+  const { trackOrder, orderStatuses } = useStore()
   const [searchParams] = useSearchParams()
   const [input, setInput] = useState(searchParams.get('order') || '')
   const [result, setResult] = useState(null)
   const [searched, setSearched] = useState(false)
+  const [loading, setLoading] = useState(false)
 
-  const doSearch = (id) => {
-    const order = findOrder(id)
-    setResult(order || null)
-    setSearched(true)
+  // Looks the order up on the server. Customers have no read access to the
+  // orders table, so this goes through a function that returns the status and
+  // total only — never anyone's name, phone or address.
+  const doSearch = async (id) => {
+    setLoading(true)
+    try {
+      setResult(await trackOrder(id))
+    } catch (err) {
+      console.error('[track] lookup failed:', err)
+      setResult(null)
+    } finally {
+      setLoading(false)
+      setSearched(true)
+    }
   }
 
   // Auto-search if an order id came in via the query string.
@@ -46,12 +57,12 @@ export default function TrackOrder() {
           onChange={(e) => setInput(e.target.value)}
           placeholder="e.g. SH-1044"
         />
-        <button type="submit" className="btn-primary flex-none">
-          Track
+        <button type="submit" disabled={loading} className="btn-primary flex-none">
+          {loading ? 'Checking…' : 'Track'}
         </button>
       </form>
 
-      {searched && !result && (
+      {searched && !loading && !result && (
         <div className="mt-10 rounded-2xl bg-red-50 p-6 text-center">
           <p className="text-3xl">😕</p>
           <p className="mt-2 font-display font-bold text-red-700">Order not found</p>

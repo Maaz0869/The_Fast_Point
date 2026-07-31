@@ -5,18 +5,23 @@ import { useStore } from '../../context/StoreContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 
 export default function AdminLogin() {
-  const { isAdmin, login, demo } = useAuth()
+  const { isAdmin, login } = useAuth()
   const { restaurant } = useStore()
   const toast = useToast()
   const navigate = useNavigate()
-  const [form, setForm] = useState({ username: '', password: '' })
+  const [form, setForm] = useState({ email: '', password: '' })
   const [error, setError] = useState('')
+  const [busy, setBusy] = useState(false)
 
   if (isAdmin) return <Navigate to="/admin/dashboard" replace />
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault()
-    const res = login(form.username.trim(), form.password)
+    setBusy(true)
+    // Real Supabase Auth sign-in — the returned session is what authorises
+    // every admin write against the database's row-level security policies.
+    const res = await login(form.email, form.password)
+    setBusy(false)
     if (res.ok) {
       toast.success('Welcome back, admin!')
       navigate('/admin/dashboard')
@@ -41,15 +46,17 @@ export default function AdminLogin() {
 
           <form onSubmit={submit} className="mt-6 space-y-4">
             <div>
-              <label className="label">Username</label>
+              <label className="label">Email</label>
               <input
+                type="email"
+                autoComplete="username"
                 className="input"
-                value={form.username}
+                value={form.email}
                 onChange={(e) => {
-                  setForm({ ...form, username: e.target.value })
+                  setForm({ ...form, email: e.target.value })
                   setError('')
                 }}
-                placeholder="admin"
+                placeholder="maaz@thesnackhut.pk"
                 autoFocus
               />
             </div>
@@ -57,6 +64,7 @@ export default function AdminLogin() {
               <label className="label">Password</label>
               <input
                 type="password"
+                autoComplete="current-password"
                 className="input"
                 value={form.password}
                 onChange={(e) => {
@@ -69,14 +77,10 @@ export default function AdminLogin() {
             {error && (
               <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600">{error}</p>
             )}
-            <button type="submit" className="btn-primary w-full">
-              Sign In
+            <button type="submit" disabled={busy} className="btn-primary w-full">
+              {busy ? 'Signing in…' : 'Sign In'}
             </button>
           </form>
-
-          <div className="mt-5 rounded-xl bg-brand-50 p-3 text-center text-xs text-brand-700">
-            Demo credentials — <b>{demo.user}</b> / <b>{demo.pass}</b>
-          </div>
         </div>
 
         <Link

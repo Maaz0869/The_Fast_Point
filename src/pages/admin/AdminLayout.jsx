@@ -8,6 +8,7 @@ import { Menu as MenuIcon, Close } from '../../components/Icons.jsx'
 const navItems = [
   { to: '/admin/dashboard', label: 'Dashboard', icon: '📊' },
   { to: '/admin/orders', label: 'Orders', icon: '🧾' },
+  { to: '/admin/messages', label: 'Messages', icon: '✉️' },
   { to: '/admin/menu', label: 'Menu Items', icon: '🍔' },
   { to: '/admin/deals', label: 'Deals & Offers', icon: '🏷️' },
   { to: '/admin/discounts', label: 'Discount Codes', icon: '🎟️' },
@@ -21,15 +22,18 @@ const navItems = [
 
 export default function AdminLayout() {
   const { logout } = useAuth()
-  const { restaurant, toggleOpen, orders } = useStore()
+  const { restaurant, toggleOpen, orders, messages } = useStore()
   const toast = useToast()
   const navigate = useNavigate()
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const pendingCount = orders.filter((o) => o.status !== 'Delivered').length
+  const unreadCount = messages.filter((m) => !m.read).length
+  const badgeFor = (to) =>
+    to === '/admin/orders' ? pendingCount : to === '/admin/messages' ? unreadCount : 0
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    await logout()
     toast.info('Logged out')
     navigate('/admin')
   }
@@ -68,9 +72,9 @@ export default function AdminLayout() {
             >
               <span>{item.icon}</span>
               <span className="flex-1">{item.label}</span>
-              {item.to === '/admin/orders' && pendingCount > 0 && (
+              {badgeFor(item.to) > 0 && (
                 <span className="rounded-full bg-brand-500 px-2 py-0.5 text-[11px] font-bold">
-                  {pendingCount}
+                  {badgeFor(item.to)}
                 </span>
               )}
             </NavLink>

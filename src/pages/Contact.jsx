@@ -6,14 +6,31 @@ import { Clock, MapPin, Phone, Whatsapp } from '../components/Icons.jsx'
 import { buildWhatsappLink } from '../utils/whatsapp.js'
 
 export default function Contact() {
-  const { restaurant } = useStore()
+  const { restaurant, sendMessage } = useStore()
   const toast = useToast()
   const [form, setForm] = useState({ name: '', email: '', message: '' })
+  const [sending, setSending] = useState(false)
 
-  const submit = (e) => {
+  // Saves the message to Supabase so it shows up in the admin inbox. The form is
+  // only cleared once the write succeeds — otherwise the visitor would lose what
+  // they typed and think it had been sent.
+  const submit = async (e) => {
     e.preventDefault()
-    toast.success("Thanks! We'll get back to you shortly.")
-    setForm({ name: '', email: '', message: '' })
+    setSending(true)
+    try {
+      await sendMessage({
+        name: form.name.trim(),
+        email: form.email.trim(),
+        message: form.message.trim(),
+      })
+      setForm({ name: '', email: '', message: '' })
+      toast.success("Thanks! We'll get back to you shortly.")
+    } catch (err) {
+      console.error('[contact] message failed to send:', err)
+      toast.error("Couldn't send your message. Please try WhatsApp or call us.")
+    } finally {
+      setSending(false)
+    }
   }
 
   return (
@@ -96,8 +113,8 @@ export default function Contact() {
               placeholder="How can we help?"
             />
           </div>
-          <button type="submit" className="btn-primary w-full">
-            Send Message
+          <button type="submit" disabled={sending} className="btn-primary w-full">
+            {sending ? 'Sending…' : 'Send Message'}
           </button>
         </form>
       </div>

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useStore } from '../../context/StoreContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import Modal from '../../components/Modal.jsx'
+import ImageField from '../../components/ImageField.jsx'
 import { rs } from '../../utils/format.js'
 import { Plus, Trash } from '../../components/Icons.jsx'
 
@@ -203,13 +204,12 @@ export default function ManageDeals() {
                 placeholder="e.g. Best Value"
               />
             </div>
-            <div>
-              <label className="label">Image URL</label>
-              <input
-                className="input"
+            <div className="sm:col-span-2">
+              <ImageField
                 value={form.image}
-                onChange={(e) => setForm({ ...form, image: e.target.value })}
-                placeholder="https://…"
+                onChange={(image) => setForm((f) => ({ ...f, image }))}
+                folder="deals"
+                hint="Upload from your device or paste a URL. Leave blank for a placeholder."
               />
             </div>
           </form>

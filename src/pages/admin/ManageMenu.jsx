@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useStore } from '../../context/StoreContext.jsx'
 import { useToast } from '../../context/ToastContext.jsx'
 import Modal from '../../components/Modal.jsx'
+import ImageField from '../../components/ImageField.jsx'
 import { rs, hasDiscount, hasSizes, discountPercent } from '../../utils/format.js'
 import { Plus, Trash } from '../../components/Icons.jsx'
 
@@ -65,25 +66,6 @@ export default function ManageMenu() {
     setForm((f) => ({ ...f, sizes: [...(f.sizes || []), { id: '', name: '', price: '' }] }))
   const removeSize = (i) =>
     setForm((f) => ({ ...f, sizes: f.sizes.filter((_, idx) => idx !== i) }))
-
-  // Read a chosen image file into a base64 data URL so it can be stored inline
-  // (no backend). Works everywhere <img src> is used.
-  const onImageFile = (e) => {
-    const file = e.target.files?.[0]
-    if (!file) return
-    if (!file.type.startsWith('image/')) {
-      toast.error('Please choose an image file')
-      return
-    }
-    if (file.size > 3 * 1024 * 1024) {
-      toast.error('Image is too large (max 3 MB)')
-      return
-    }
-    const reader = new FileReader()
-    reader.onload = () => setForm((f) => ({ ...f, image: reader.result }))
-    reader.readAsDataURL(file)
-    e.target.value = '' // allow re-selecting the same file
-  }
 
   const save = (e) => {
     e.preventDefault()
@@ -440,22 +422,12 @@ export default function ManageMenu() {
                 />
               </div>
               <div className="sm:col-span-2">
-                <label className="label">Image</label>
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <label className="btn-outline flex-none cursor-pointer whitespace-nowrap px-4 py-3 text-sm">
-                    <Plus className="h-4 w-4" /> Upload Image
-                    <input type="file" accept="image/*" className="hidden" onChange={onImageFile} />
-                  </label>
-                  <input
-                    className="input"
-                    value={form.image?.startsWith('data:') ? '' : form.image || ''}
-                    onChange={(e) => setForm({ ...form, image: e.target.value })}
-                    placeholder="…or paste an image URL"
-                  />
-                </div>
-                <p className="mt-1 text-xs text-charcoal/40">
-                  Upload from your device or paste a URL. Leave blank for a placeholder.
-                </p>
+                <ImageField
+                  value={form.image}
+                  onChange={(image) => setForm((f) => ({ ...f, image }))}
+                  folder="menu"
+                  hint="Upload from your device or paste a URL. Leave blank for a placeholder."
+                />
               </div>
             </div>
             <label className="flex items-center gap-2 text-sm font-semibold">
@@ -467,26 +439,6 @@ export default function ManageMenu() {
               />
               Mark as Best Seller
             </label>
-            {form.image && (
-              <div className="relative">
-                <img
-                  src={form.image}
-                  alt="preview"
-                  className="h-36 w-full rounded-xl object-cover ring-1 ring-black/5"
-                  onLoad={(e) => (e.currentTarget.style.display = 'block')}
-                  onError={(e) => (e.currentTarget.style.display = 'none')}
-                />
-                <button
-                  type="button"
-                  onClick={() => setForm({ ...form, image: '' })}
-                  className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white text-red-500 shadow ring-1 ring-black/5 transition hover:bg-red-50"
-                  aria-label="Remove image"
-                  title="Remove image"
-                >
-                  <Trash className="h-4 w-4" />
-                </button>
-              </div>
-            )}
           </form>
         </Modal>
       )}

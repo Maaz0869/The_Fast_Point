@@ -156,6 +156,22 @@ const map = {
       entries: r.entries || [],
     }),
   },
+  messages: {
+    table: 'contact_messages',
+    order: { column: 'created_at', ascending: false },
+    fields: {
+      id: 'id', name: 'name', email: 'email', message: 'message', read: 'read',
+      createdAt: 'created_at',
+    },
+    from: (r) => ({
+      id: r.id,
+      name: r.name,
+      email: r.email,
+      message: r.message,
+      read: !!r.read,
+      createdAt: r.created_at,
+    }),
+  },
 }
 
 // Map an app object to a row, including ONLY the keys present in the object.
@@ -193,15 +209,57 @@ const makeRepo = (m) => ({
   },
 })
 
+const num = (v) => (v == null ? 0 : Number(v))
+
 export const db = {
   menu: makeRepo(map.menu),
   deals: makeRepo(map.deals),
   slides: makeRepo(map.slides),
   discounts: makeRepo(map.discounts),
-  orders: makeRepo(map.orders),
   expenses: makeRepo(map.expenses),
   suppliers: makeRepo(map.suppliers),
   businesses: makeRepo(map.businesses),
+  orders: {
+    ...makeRepo(map.orders),
+    // Customers have no write access to `orders` at all — checkout goes through
+    // this definer function, which also claims the next order number
+    // atomically (so two simultaneous checkouts can't share an id).
+    async place(order) {
+      const { data, error } = await supabase.rpc('place_order', { p_order: order })
+      if (error) throw error
+      if (!data) throw new Error('Order could not be placed')
+      return {
+        ...data,
+        subtotal: num(data.subtotal),
+        deliveryFee: num(data.deliveryFee),
+        discount: num(data.discount),
+        total: num(data.total),
+        items: data.items || [],
+      }
+    },
+    // Public tracking: returns status/total only, never the customer's details.
+    async track(id) {
+      const { data, error } = await supabase.rpc('track_order', { p_id: id })
+      if (error) throw error
+      return data ? { ...data, total: num(data.total) } : null
+    },
+  },
+  messages: {
+    list: makeRepo(map.messages).list,
+    // Anyone may send a message (insert-only policy), nobody but an admin can
+    // read them back — so this is a plain insert, not an upsert.
+    async send({ name, email, message }) {
+      const { error } = await supabase
+        .from('contact_messages')
+        .insert({ name, email, message, read: false })
+      if (error) throw error
+    },
+    async setRead(id, read) {
+      const { error } = await supabase.from('contact_messages').update({ read }).eq('id', id)
+      if (error) throw error
+    },
+    remove: makeRepo(map.messages).remove,
+  },
   settings: {
     async getAll() {
       const { data, error } = await supabase.from('settings').select('*')
@@ -217,30 +275,58 @@ export const db = {
   },
 }
 
-// ---- Initial load: everything the store needs, in parallel -----------------
-export async function fetchAll() {
-  const [menu, deals, slides, discounts, orders, expenses, suppliers, businesses, settings] =
-    await Promise.all([
-      db.menu.list(),
-      db.deals.list(),
-      db.slides.list(),
-      db.discounts.list(),
-      db.orders.list(),
-      db.expenses.list(),
-      db.suppliers.list(),
-      db.businesses.list(),
-      db.settings.getAll(),
-    ])
-  return { menu, deals, slides, discounts, orders, expenses, suppliers, businesses, settings }
+// ---- Image uploads ---------------------------------------------------------
+// Admin-uploaded images go to the public `images` Storage bucket and are
+// referenced by URL, so a photo never bloats a table row (or localStorage).
+export async function uploadImage(file, folder = 'menu') {
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg'
+  const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+  const { error } = await supabase.storage.from('images').upload(path, file, {
+    contentType: file.type || 'image/jpeg',
+    cacheControl: '31536000',
+    upsert: false,
+  })
+  if (error) throw error
+  return supabase.storage.from('images').getPublicUrl(path).data.publicUrl
+}
+
+// ---- Initial load ----------------------------------------------------------
+// Split in two because RLS is split in two: the catalogue is world-readable,
+// while orders/finances/messages need an admin session.
+export async function fetchPublic() {
+  const [menu, deals, slides, discounts, settings] = await Promise.all([
+    db.menu.list(),
+    db.deals.list(),
+    db.slides.list(),
+    db.discounts.list(),
+    db.settings.getAll(),
+  ])
+  return { menu, deals, slides, discounts, settings }
+}
+
+export async function fetchAdmin() {
+  const [orders, expenses, suppliers, businesses, messages] = await Promise.all([
+    db.orders.list(),
+    db.expenses.list(),
+    db.suppliers.list(),
+    db.businesses.list(),
+    db.messages.list(),
+  ])
+  return { orders, expenses, suppliers, businesses, messages }
 }
 
 // ---- First-run seeding -----------------------------------------------------
-// Seeds only the tables that are still empty, so it's safe to call on every
-// load. Engineered created_at timestamps preserve the seed display order
-// (menus/deals sort newest-first, so earlier seeds get later timestamps).
+// Runs once per project, for an admin only (writes are admin-only now). The
+// `seeded` settings flag makes it a genuine one-shot: clearing every expense or
+// supplier afterwards can no longer bring the demo rows back.
+// Engineered created_at timestamps preserve the seed display order (menus/deals
+// sort newest-first, so earlier seeds get later timestamps).
 const stamp = (base, i) => new Date(base - i * 60000).toISOString()
 
 export async function seedIfEmpty(current, seeds) {
+  const s = current.settings || {}
+  if (s.seeded) return false
+
   const jobs = []
   const base = Date.parse('2026-01-01T00:00:00Z')
 
@@ -253,7 +339,6 @@ export async function seedIfEmpty(current, seeds) {
   if (!current.slides.length && seeds.slides.length) jobs.push(db.slides.upsertMany(seeds.slides))
   if (!current.discounts.length && seeds.discounts.length)
     jobs.push(db.discounts.upsertMany(seeds.discounts))
-  if (!current.orders.length && seeds.orders.length) jobs.push(db.orders.upsertMany(seeds.orders))
   if (!current.expenses.length && seeds.expenses.length)
     jobs.push(db.expenses.upsertMany(seeds.expenses))
   if (!current.suppliers.length && seeds.suppliers.length)
@@ -261,12 +346,11 @@ export async function seedIfEmpty(current, seeds) {
   if (!current.businesses.length && seeds.businesses.length)
     jobs.push(db.businesses.upsertMany(seeds.businesses))
 
-  const s = current.settings || {}
   if (!s.restaurant) jobs.push(db.settings.set('restaurant', seeds.restaurant))
   if (!s.delivery_rules) jobs.push(db.settings.set('delivery_rules', seeds.deliveryRules))
   if (!s.offer_banner) jobs.push(db.settings.set('offer_banner', seeds.offerBanner))
-  if (s.order_counter == null) jobs.push(db.settings.set('order_counter', seeds.orderCounter))
 
-  if (jobs.length) await Promise.all(jobs)
+  await Promise.all(jobs)
+  await db.settings.set('seeded', true)
   return jobs.length > 0
 }

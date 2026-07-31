@@ -12,11 +12,11 @@ import {
   RESTAURANT,
   SEED_BUSINESSES,
   SEED_EXPENSES,
-  SEED_ORDERS,
   SEED_SUPPLIERS,
   SLIDES,
 } from '../data/mockData.js'
-import { db, fetchAll, seedIfEmpty } from '../lib/db.js'
+import { db, fetchAdmin, fetchPublic, seedIfEmpty } from '../lib/db.js'
+import { useAuth } from './AuthContext.jsx'
 
 // Fire-and-forget a Supabase write; log (don't crash) if it fails so the
 // optimistic local update still stands and the UI stays responsive.
@@ -31,9 +31,10 @@ const save = (promise) => {
 // discount codes, delivery rules and restaurant settings. The admin panel
 // mutates this state; the customer site reads from it.
 //
-// State is persisted to localStorage so orders and admin changes survive page
-// refreshes and show up in the admin panel (on the same browser/device). Seed
-// data is only used the first time, before anything is saved.
+// Supabase is the source of truth. The public catalogue (menu, deals, slides,
+// discount codes, shop settings) is cached in localStorage for an instant first
+// paint; orders, finances and contact messages are admin-only under RLS, so
+// they are always fetched fresh after sign-in and never cached on disk.
 // ---------------------------------------------------------------------------
 
 const StoreContext = createContext(null)
@@ -43,7 +44,8 @@ export const useStore = () => useContext(StoreContext)
 const genId = (prefix) => `${prefix}${Math.random().toString(36).slice(2, 8)}`
 
 // Bump the version suffix if the saved shape ever changes incompatibly.
-const STORAGE_KEY = 'snackhut_store_v1'
+// v2 dropped orders/finances from the cache — they are admin-only server data.
+const STORAGE_KEY = 'snackhut_store_v2'
 
 const loadSaved = () => {
   try {
@@ -51,6 +53,28 @@ const loadSaved = () => {
     return raw ? JSON.parse(raw) : null
   } catch {
     return null
+  }
+}
+
+// A customer's own orders, kept for this tab only, so the confirmation page
+// still works after a refresh (they can't read the orders table under RLS).
+const MY_ORDERS_KEY = 'snackhut_my_orders'
+
+const rememberMyOrder = (order) => {
+  try {
+    const all = JSON.parse(sessionStorage.getItem(MY_ORDERS_KEY) || '[]')
+    sessionStorage.setItem(MY_ORDERS_KEY, JSON.stringify([order, ...all].slice(0, 10)))
+  } catch {
+    /* storage unavailable — the confirmation page still has the order in state */
+  }
+}
+
+const readMyOrder = (lowerId) => {
+  try {
+    const all = JSON.parse(sessionStorage.getItem(MY_ORDERS_KEY) || '[]')
+    return all.find((o) => String(o.id).toLowerCase() === lowerId)
+  } catch {
+    return undefined
   }
 }
 
@@ -118,6 +142,8 @@ const applyContactMigration = (rest) => {
 const migrateRestaurant = (rest) => applyContactMigration(applyLocationMigration(rest))
 
 export function StoreProvider({ children }) {
+  const { isAdmin } = useAuth()
+
   // Read localStorage exactly once (not on every render). Each useState reads
   // this the first time it mounts and never again.
   const saved = useRef(loadSaved()).current
@@ -125,7 +151,6 @@ export function StoreProvider({ children }) {
   const [menu, setMenu] = useState(() => initMenu(arr(saved?.menu, MENU_ITEMS)))
   const [deals, setDeals] = useState(() => arr(saved?.deals, DEALS))
   const [slides, setSlides] = useState(() => arr(saved?.slides, SLIDES))
-  const [orders, setOrders] = useState(() => arr(saved?.orders, SEED_ORDERS))
   const [discounts, setDiscounts] = useState(() => arr(saved?.discounts, DISCOUNT_CODES))
   // Merge so any saved rules that predate the distance fields still get them.
   const [deliveryRules, setDeliveryRules] = useState(() => ({
@@ -136,15 +161,16 @@ export function StoreProvider({ children }) {
     migrateRestaurant(saved?.restaurant ?? RESTAURANT),
   )
   const [offerBanner, setOfferBanner] = useState(() => saved?.offerBanner ?? OFFER_BANNER)
-  const [orderCounter, setOrderCounter] = useState(() =>
-    Number.isFinite(saved?.orderCounter) ? saved.orderCounter : 1044,
-  )
-  const [expenses, setExpenses] = useState(() => arr(saved?.expenses, SEED_EXPENSES))
-  const [suppliers, setSuppliers] = useState(() => arr(saved?.suppliers, SEED_SUPPLIERS))
-  const [businesses, setBusinesses] = useState(() => arr(saved?.businesses, SEED_BUSINESSES))
 
-  // Persist everything whenever it changes. Wrapped in try/catch so a full
-  // storage quota (e.g. many large uploaded images) never crashes the app.
+  // Admin-only data: never read from the cache, always loaded after sign-in.
+  const [orders, setOrders] = useState([])
+  const [expenses, setExpenses] = useState([])
+  const [suppliers, setSuppliers] = useState([])
+  const [businesses, setBusinesses] = useState([])
+  const [messages, setMessages] = useState([])
+
+  // Cache the public catalogue for a fast first paint. Wrapped in try/catch so
+  // a full storage quota never crashes the app.
   useEffect(() => {
     try {
       localStorage.setItem(
@@ -153,76 +179,54 @@ export function StoreProvider({ children }) {
           menu,
           deals,
           slides,
-          orders,
           discounts,
           deliveryRules,
           restaurant,
           offerBanner,
-          orderCounter,
-          expenses,
-          suppliers,
-          businesses,
         }),
       )
     } catch {
       /* storage unavailable or over quota — keep running in-memory */
     }
-  }, [
-    menu,
-    deals,
-    slides,
-    orders,
-    discounts,
-    deliveryRules,
-    restaurant,
-    offerBanner,
-    orderCounter,
-    expenses,
-    suppliers,
-    businesses,
-  ])
+  }, [menu, deals, slides, discounts, deliveryRules, restaurant, offerBanner])
 
-  // ---- Load from Supabase on mount ---------------------------------------
-  // localStorage above gives an instant first paint from the last session;
-  // this then pulls the authoritative data from Supabase (seeding it on the
-  // very first run) so admin changes and orders are shared across devices.
+  const SEEDS = {
+    menu: MENU_ITEMS,
+    deals: DEALS,
+    slides: SLIDES,
+    discounts: DISCOUNT_CODES,
+    expenses: SEED_EXPENSES,
+    suppliers: SEED_SUPPLIERS,
+    businesses: SEED_BUSINESSES,
+    restaurant: RESTAURANT,
+    deliveryRules: DELIVERY_RULES,
+    offerBanner: OFFER_BANNER,
+  }
+
+  // Applies a public payload to state. Kept separate so both the initial load
+  // and the post-seed reload go through exactly the same path.
+  const applyPublic = useCallback((data) => {
+    setMenu(initMenu(data.menu))
+    setDeals(data.deals)
+    setSlides(data.slides)
+    setDiscounts(data.discounts)
+    if (data.settings.restaurant) setRestaurant(migrateRestaurant(data.settings.restaurant))
+    if (data.settings.delivery_rules)
+      setDeliveryRules((r) => ({ ...r, ...data.settings.delivery_rules }))
+    if (data.settings.offer_banner) setOfferBanner(data.settings.offer_banner)
+  }, [])
+
+  // ---- Load the public catalogue on mount ---------------------------------
+  // localStorage above gives an instant first paint from the last session; this
+  // then pulls the authoritative catalogue from Supabase so every device sees
+  // the same menu, prices, delivery charges and shop settings.
   useEffect(() => {
     let cancelled = false
-    const seeds = {
-      menu: MENU_ITEMS,
-      deals: DEALS,
-      slides: SLIDES,
-      discounts: DISCOUNT_CODES,
-      orders: SEED_ORDERS,
-      expenses: SEED_EXPENSES,
-      suppliers: SEED_SUPPLIERS,
-      businesses: SEED_BUSINESSES,
-      restaurant: RESTAURANT,
-      deliveryRules: DELIVERY_RULES,
-      offerBanner: OFFER_BANNER,
-      orderCounter: 1044,
-    }
     ;(async () => {
       try {
-        let data = await fetchAll()
-        const didSeed = await seedIfEmpty(data, seeds)
-        if (didSeed) data = await fetchAll()
+        const data = await fetchPublic()
         if (cancelled) return
-        setMenu(initMenu(data.menu))
-        setDeals(data.deals)
-        setSlides(data.slides)
-        setOrders(data.orders)
-        setDiscounts(data.discounts)
-        setExpenses(data.expenses)
-        setSuppliers(data.suppliers)
-        setBusinesses(data.businesses)
-        if (data.settings.restaurant)
-          setRestaurant(migrateRestaurant(data.settings.restaurant))
-        if (data.settings.delivery_rules)
-          setDeliveryRules((r) => ({ ...r, ...data.settings.delivery_rules }))
-        if (data.settings.offer_banner) setOfferBanner(data.settings.offer_banner)
-        if (Number.isFinite(data.settings.order_counter))
-          setOrderCounter(data.settings.order_counter)
+        applyPublic(data)
       } catch (e) {
         console.error('[store] Supabase load failed — running on local cache:', e)
       }
@@ -230,7 +234,47 @@ export function StoreProvider({ children }) {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [applyPublic])
+
+  // ---- Load admin data once signed in -------------------------------------
+  // Orders, finances and contact messages are admin-only under RLS, so they can
+  // only be fetched with an admin session — and are dropped again on logout.
+  useEffect(() => {
+    if (!isAdmin) {
+      setOrders([])
+      setExpenses([])
+      setSuppliers([])
+      setBusinesses([])
+      setMessages([])
+      return
+    }
+    let cancelled = false
+    ;(async () => {
+      try {
+        let [pub, data] = await Promise.all([fetchPublic(), fetchAdmin()])
+        // First run of a fresh project: only an admin can write, so this is
+        // where the demo content gets seeded (exactly once, ever — guarded by
+        // the `seeded` settings flag).
+        if (await seedIfEmpty({ ...pub, ...data }, SEEDS)) {
+          ;[pub, data] = await Promise.all([fetchPublic(), fetchAdmin()])
+          if (cancelled) return
+          applyPublic(pub)
+        }
+        if (cancelled) return
+        setOrders(data.orders)
+        setExpenses(data.expenses)
+        setSuppliers(data.suppliers)
+        setBusinesses(data.businesses)
+        setMessages(data.messages)
+      } catch (e) {
+        console.error('[store] admin data load failed:', e)
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAdmin, applyPublic])
 
   // ---- Menu CRUD ----------------------------------------------------------
   const addMenuItem = useCallback((item) => {
@@ -335,24 +379,17 @@ export function StoreProvider({ children }) {
   )
 
   // ---- Orders -------------------------------------------------------------
-  const placeOrder = useCallback(
-    (order) => {
-      const id = `SH-${orderCounter}`
-      const nextCounter = orderCounter + 1
-      const record = {
-        ...order,
-        id,
-        createdAt: new Date().toISOString(),
-        status: 'Pending',
-      }
-      setOrderCounter(nextCounter)
-      setOrders((o) => [record, ...o])
-      save(db.orders.upsert(record))
-      save(db.settings.set('order_counter', nextCounter))
-      return record
-    },
-    [orderCounter],
-  )
+  // Goes through the place_order RPC: the order number is assigned server-side
+  // and the row is written before we resolve, so an order is never "placed"
+  // locally without landing in the database. Throws if the write fails.
+  const placeOrder = useCallback(async (order) => {
+    const record = await db.orders.place(order)
+    setOrders((o) => [record, ...o])
+    rememberMyOrder(record)
+    return record
+  }, [])
+  // Public status lookup for the tracking page (no customer details exposed).
+  const trackOrder = useCallback((id) => db.orders.track(id), [])
   const updateOrderStatus = useCallback((id, status) => {
     setOrders((o) => o.map((ord) => (ord.id === id ? { ...ord, status } : ord)))
     save(db.orders.upsert({ id, status }))
@@ -361,8 +398,14 @@ export function StoreProvider({ children }) {
     setOrders((o) => o.filter((ord) => ord.id !== id))
     save(db.orders.remove(id))
   }, [])
+  // Admins match against the loaded order list; a customer only ever has their
+  // own just-placed orders (kept in sessionStorage) — enough for the
+  // confirmation page to survive a refresh without exposing anyone else's.
   const findOrder = useCallback(
-    (id) => orders.find((o) => o.id.toLowerCase() === String(id).trim().toLowerCase()),
+    (id) => {
+      const key = String(id).trim().toLowerCase()
+      return orders.find((o) => o.id.toLowerCase() === key) || readMyOrder(key)
+    },
     [orders],
   )
 
@@ -390,6 +433,19 @@ export function StoreProvider({ children }) {
   const saveOfferBanner = useCallback((banner) => {
     setOfferBanner(banner)
     save(db.settings.set('offer_banner', banner))
+  }, [])
+
+  // ---- Contact messages ---------------------------------------------------
+  // Sending is open to any visitor (insert-only policy); reading and managing
+  // requires an admin session, so those go through the optimistic `save` path.
+  const sendMessage = useCallback((msg) => db.messages.send(msg), [])
+  const setMessageRead = useCallback((id, read = true) => {
+    setMessages((list) => list.map((m) => (m.id === id ? { ...m, read } : m)))
+    save(db.messages.setRead(id, read))
+  }, [])
+  const deleteMessage = useCallback((id) => {
+    setMessages((list) => list.filter((m) => m.id !== id))
+    save(db.messages.remove(id))
   }, [])
 
   // ---- Expenses -----------------------------------------------------------
@@ -548,9 +604,14 @@ export function StoreProvider({ children }) {
       findDiscount,
       calcDeliveryFee,
       placeOrder,
+      trackOrder,
       updateOrderStatus,
       deleteOrder,
       findOrder,
+      messages,
+      sendMessage,
+      setMessageRead,
+      deleteMessage,
       setDeliveryRules: saveDeliveryRules,
       setOfferBanner: saveOfferBanner,
       toggleOpen,
@@ -599,9 +660,14 @@ export function StoreProvider({ children }) {
       findDiscount,
       calcDeliveryFee,
       placeOrder,
+      trackOrder,
       updateOrderStatus,
       deleteOrder,
       findOrder,
+      messages,
+      sendMessage,
+      setMessageRead,
+      deleteMessage,
       toggleOpen,
       updateRestaurant,
       expenses,

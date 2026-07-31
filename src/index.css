@@ -9,7 +9,7 @@
      `brand-*`  = accent palette (swappable via [data-accent] below) */
   :root {
     --cream: 253 250 246;   /* page background   #fdfaf6 */
-    --charcoal: 31 27 24;   /* text / foreground #1f1b18 */
+    --charcoal: 0 0 0;      /* text / foreground pure black #000000 */
 
     /* Default accent — Orange */
     --brand-50: 255 245 242;
@@ -66,7 +66,7 @@
   .dark .input,
   .dark .bg-gray-50,
   .dark .bg-gray-100 {
-    --charcoal: 31 27 24;    /* dark text back on white cards & light panels
+    --charcoal: 0 0 0;       /* black text back on white cards & light panels
                                 (also keeps the admin panel readable) */
   }
 

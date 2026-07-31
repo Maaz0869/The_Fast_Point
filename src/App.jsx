@@ -28,6 +28,7 @@ import ManageSlider from './pages/admin/ManageSlider.jsx'
 import DeliveryRules from './pages/admin/DeliveryRules.jsx'
 import Settings from './pages/admin/Settings.jsx'
 import Orders from './pages/admin/Orders.jsx'
+import Messages from './pages/admin/Messages.jsx'
 import Expenses from './pages/admin/Expenses.jsx'
 import Suppliers from './pages/admin/Suppliers.jsx'
 import Businesses from './pages/admin/Businesses.jsx'
@@ -80,6 +81,7 @@ export default function App() {
             <Route path="businesses" element={<Businesses />} />
             <Route path="settings" element={<Settings />} />
             <Route path="orders" element={<Orders />} />
+            <Route path="messages" element={<Messages />} />
           </Route>
 
           <Route path="*" element={<NotFound />} />

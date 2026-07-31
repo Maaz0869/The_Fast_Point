@@ -116,7 +116,7 @@ export default function Checkout() {
     payment,
   })
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault()
     if (!restaurant.isOpen) {
       toast.error("We're currently closed.")
@@ -128,7 +128,17 @@ export default function Checkout() {
     }
     setPlacing(true)
     // Record the order first so the WhatsApp message can carry the order number.
-    const record = placeOrder(buildOrderPayload())
+    // The order number is assigned by the database, so nothing else happens
+    // (cart clear, WhatsApp, confirmation page) until the row is safely stored.
+    let record
+    try {
+      record = await placeOrder(buildOrderPayload())
+    } catch (err) {
+      console.error('[checkout] order failed:', err)
+      setPlacing(false)
+      toast.error("Couldn't place your order. Please check your connection and try again.")
+      return
+    }
     const message = buildOrderMessage({
       items: itemsForMsg(items),
       orderType,
