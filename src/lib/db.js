@@ -7,9 +7,10 @@ import { supabase } from './supabase.js'
 // Nested arrays/objects (sizes, customer, items, ledger, entries) live in JSONB
 // columns, so each app entity is exactly one row — no join wrangling.
 //
-// `to` is field-map driven so it is PARTIAL-SAFE: passing only { id, ...patch }
-// upserts just those columns and leaves the rest of the row untouched — which
-// is exactly what the admin "update" callbacks need.
+// Two write paths, and the difference matters:
+//   `upsert(obj)`      — a whole record (insert or full replace).
+//   `update(id, patch)`— a partial change to an existing row. Never use upsert
+//                        for this: see the note on `update` below.
 // ---------------------------------------------------------------------------
 
 const map = {
@@ -196,6 +197,19 @@ const makeRepo = (m) => ({
   },
   async upsert(obj) {
     const { error } = await supabase.from(m.table).upsert(toRow(m, obj))
+    if (error) throw error
+  },
+  // Patch an existing row. This can NOT be an upsert: PostgREST turns an upsert
+  // into `INSERT ... ON CONFLICT DO UPDATE`, and Postgres validates NOT NULL on
+  // the insert tuple *before* the conflict is resolved. So patching a supplier's
+  // ledger with { id, ledger } was rejected with 23502 ("null value in column
+  // name") even though the row exists and `name` was never being changed —
+  // silently losing every ledger entry and business entry.
+  async update(id, patch) {
+    const row = toRow(m, patch)
+    delete row[m.key || 'id'] // never rewrite the key we're matching on
+    if (!Object.keys(row).length) return
+    const { error } = await supabase.from(m.table).update(row).eq(m.key || 'id', id)
     if (error) throw error
   },
   async upsertMany(objs) {

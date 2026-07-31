@@ -284,7 +284,7 @@ export function StoreProvider({ children }) {
   }, [])
   const updateMenuItem = useCallback((id, patch) => {
     setMenu((m) => m.map((it) => (it.id === id ? { ...it, ...patch } : it)))
-    save(db.menu.upsert({ id, ...patch }))
+    save(db.menu.update(id, patch))
   }, [])
   const deleteMenuItem = useCallback((id) => {
     setMenu((m) => m.filter((it) => it.id !== id))
@@ -299,7 +299,7 @@ export function StoreProvider({ children }) {
   }, [])
   const updateDeal = useCallback((id, patch) => {
     setDeals((d) => d.map((x) => (x.id === id ? { ...x, ...patch } : x)))
-    save(db.deals.upsert({ id, ...patch }))
+    save(db.deals.update(id, patch))
   }, [])
   const deleteDeal = useCallback((id) => {
     setDeals((d) => d.filter((x) => x.id !== id))
@@ -314,7 +314,7 @@ export function StoreProvider({ children }) {
   }, [])
   const updateSlide = useCallback((id, patch) => {
     setSlides((s) => s.map((x) => (x.id === id ? { ...x, ...patch } : x)))
-    save(db.slides.upsert({ id, ...patch }))
+    save(db.slides.update(id, patch))
   }, [])
   const deleteSlide = useCallback((id) => {
     setSlides((s) => s.filter((x) => x.id !== id))
@@ -392,7 +392,7 @@ export function StoreProvider({ children }) {
   const trackOrder = useCallback((id) => db.orders.track(id), [])
   const updateOrderStatus = useCallback((id, status) => {
     setOrders((o) => o.map((ord) => (ord.id === id ? { ...ord, status } : ord)))
-    save(db.orders.upsert({ id, status }))
+    save(db.orders.update(id, { status }))
   }, [])
   const deleteOrder = useCallback((id) => {
     setOrders((o) => o.filter((ord) => ord.id !== id))
@@ -462,7 +462,7 @@ export function StoreProvider({ children }) {
     )
     const amountPatch =
       patch.amount !== undefined ? { amount: Number(patch.amount) || 0 } : {}
-    save(db.expenses.upsert({ id, ...patch, ...amountPatch }))
+    save(db.expenses.update(id, { ...patch, ...amountPatch }))
   }, [])
   const deleteExpense = useCallback((id) => {
     setExpenses((e) => e.filter((x) => x.id !== id))
@@ -484,7 +484,7 @@ export function StoreProvider({ children }) {
   }, [])
   const updateSupplier = useCallback((id, patch) => {
     setSuppliers((list) => list.map((s) => (s.id === id ? { ...s, ...patch } : s)))
-    save(db.suppliers.upsert({ id, ...patch }))
+    save(db.suppliers.update(id, patch))
   }, [])
   const deleteSupplier = useCallback((id) => {
     setSuppliers((list) => list.filter((s) => s.id !== id))
@@ -499,7 +499,7 @@ export function StoreProvider({ children }) {
         list.map((s) => (s.id === supplierId ? { ...s, ledger: [...s.ledger, entry] } : s)),
       )
       const s = suppliers.find((x) => x.id === supplierId)
-      if (s) save(db.suppliers.upsert({ id: supplierId, ledger: [...s.ledger, entry] }))
+      if (s) save(db.suppliers.update(supplierId, { ledger: [...s.ledger, entry] }))
       return entry
     },
     [suppliers],
@@ -512,7 +512,7 @@ export function StoreProvider({ children }) {
         ),
       )
       const s = suppliers.find((x) => x.id === supplierId)
-      if (s) save(db.suppliers.upsert({ id: supplierId, ledger: s.ledger.filter((t) => t.id !== txnId) }))
+      if (s) save(db.suppliers.update(supplierId, { ledger: s.ledger.filter((t) => t.id !== txnId) }))
     },
     [suppliers],
   )
@@ -534,7 +534,7 @@ export function StoreProvider({ children }) {
   }, [])
   const updateBusiness = useCallback((id, patch) => {
     setBusinesses((list) => list.map((b) => (b.id === id ? { ...b, ...patch } : b)))
-    save(db.businesses.upsert({ id, ...patch }))
+    save(db.businesses.update(id, patch))
   }, [])
   const deleteBusiness = useCallback((id) => {
     setBusinesses((list) => list.filter((b) => b.id !== id))
@@ -548,7 +548,7 @@ export function StoreProvider({ children }) {
         list.map((b) => (b.id === businessId ? { ...b, entries: [...b.entries, rec] } : b)),
       )
       const b = businesses.find((x) => x.id === businessId)
-      if (b) save(db.businesses.upsert({ id: businessId, entries: [...b.entries, rec] }))
+      if (b) save(db.businesses.update(businessId, { entries: [...b.entries, rec] }))
       return rec
     },
     [businesses],
@@ -562,7 +562,7 @@ export function StoreProvider({ children }) {
       )
       const b = businesses.find((x) => x.id === businessId)
       if (b)
-        save(db.businesses.upsert({ id: businessId, entries: b.entries.filter((e) => e.id !== entryId) }))
+        save(db.businesses.update(businessId, { entries: b.entries.filter((e) => e.id !== entryId) }))
     },
     [businesses],
   )
