@@ -1,8 +1,10 @@
-import { useState } from 'react'
-import { Link, NavLink, useLocation } from 'react-router-dom'
+import { useEffect, useState } from 'react'
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext.jsx'
 import { useCart } from '../context/CartContext.jsx'
 import { useStore } from '../context/StoreContext.jsx'
 import { useTheme } from '../context/ThemeContext.jsx'
+import { useToast } from '../context/ToastContext.jsx'
 import ThemePicker from './ThemePicker.jsx'
 import { Cart, Menu as MenuIcon, Close, Sun, Moon, User } from './Icons.jsx'
 
@@ -13,12 +15,41 @@ const links = [
   { to: '/contact', label: 'Contact' },
 ]
 
+const accountLinks = [
+  { to: '/account', label: 'My Dashboard', icon: '🏠' },
+  { to: '/account/orders', label: 'My Orders', icon: '🧾' },
+  { to: '/account/coupons', label: 'My Coupons', icon: '🎟️' },
+  { to: '/account/profile', label: 'Profile', icon: '👤' },
+]
+
 export default function Navbar() {
   const { count } = useCart()
-  const { restaurant } = useStore()
+  const { restaurant, myCoupons, isCouponUsable } = useStore()
+  const { user, profile, isAdmin, logout } = useAuth()
   const { isDark, toggleTheme } = useTheme()
+  const toast = useToast()
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
+  const [accountOpen, setAccountOpen] = useState(false)
   const location = useLocation()
+
+  // Both menus close on navigation, so a tapped link never leaves one hanging.
+  useEffect(() => {
+    setOpen(false)
+    setAccountOpen(false)
+  }, [location.pathname])
+
+  const displayName = profile?.name || user?.email?.split('@')[0] || 'Account'
+  const firstName = displayName.split(' ')[0]
+  const initial = displayName.trim().charAt(0).toUpperCase() || '?'
+  const couponCount = myCoupons.filter(isCouponUsable).length
+
+  const signOut = async () => {
+    await logout()
+    setAccountOpen(false)
+    toast.info('Signed out')
+    navigate('/')
+  }
 
   // Show the shop name from the store, with the last word accented.
   const nameParts = (restaurant.name || 'The Snack Hut').trim().split(' ')
@@ -88,12 +119,75 @@ export default function Navbar() {
               </span>
             )}
           </Link>
-          <Link
-            to="/admin"
-            className="hidden items-center gap-1.5 rounded-full bg-brand-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-600 sm:flex"
-          >
-            <User className="h-4 w-4" /> Login
-          </Link>
+          {user ? (
+            <div className="relative hidden sm:block">
+              <button
+                onClick={() => setAccountOpen((o) => !o)}
+                className="flex items-center gap-2 rounded-full bg-brand-500 py-1.5 pl-1.5 pr-3 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-600"
+                aria-expanded={accountOpen}
+                aria-label="Your account"
+              >
+                <span className="flex h-7 w-7 flex-none items-center justify-center rounded-full bg-white/25 font-display text-xs font-extrabold">
+                  {initial}
+                </span>
+                <span className="max-w-[90px] truncate">{firstName}</span>
+                {couponCount > 0 && (
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[11px] font-bold text-brand-600">
+                    {couponCount}
+                  </span>
+                )}
+              </button>
+
+              {accountOpen && (
+                <>
+                  {/* Click-away catcher, below the panel but above the page. */}
+                  <div className="fixed inset-0 z-40" onClick={() => setAccountOpen(false)} />
+                  <div className="absolute right-0 z-50 mt-2 w-56 overflow-hidden rounded-2xl bg-white py-2 shadow-xl ring-1 ring-black/5">
+                    <div className="border-b border-black/5 px-4 pb-2">
+                      <p className="truncate font-display font-bold">{displayName}</p>
+                      <p className="truncate text-xs text-charcoal/50">{user.email}</p>
+                    </div>
+                    {accountLinks.map((a) => (
+                      <Link
+                        key={a.to}
+                        to={a.to}
+                        className="flex items-center gap-2.5 px-4 py-2.5 text-sm font-semibold text-charcoal/75 transition hover:bg-black/5 hover:text-charcoal"
+                      >
+                        <span>{a.icon}</span>
+                        {a.label}
+                        {a.to === '/account/coupons' && couponCount > 0 && (
+                          <span className="ml-auto rounded-full bg-brand-500 px-2 py-0.5 text-[11px] font-bold text-white">
+                            {couponCount}
+                          </span>
+                        )}
+                      </Link>
+                    ))}
+                    {isAdmin && (
+                      <Link
+                        to="/admin/dashboard"
+                        className="flex items-center gap-2.5 border-t border-black/5 px-4 py-2.5 text-sm font-semibold text-charcoal/75 transition hover:bg-black/5"
+                      >
+                        <span>📊</span> Admin Panel
+                      </Link>
+                    )}
+                    <button
+                      onClick={signOut}
+                      className="flex w-full items-center gap-2.5 border-t border-black/5 px-4 py-2.5 text-sm font-semibold text-red-500 transition hover:bg-red-50"
+                    >
+                      <span>🚪</span> Sign Out
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          ) : (
+            <Link
+              to="/login"
+              className="hidden items-center gap-1.5 rounded-full bg-brand-500 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-brand-600 sm:flex"
+            >
+              <User className="h-4 w-4" /> Sign In
+            </Link>
+          )}
           <button
             onClick={() => setOpen((o) => !o)}
             className="flex h-10 w-10 items-center justify-center rounded-full bg-white shadow-card ring-1 ring-black/5 md:hidden"
@@ -134,15 +228,72 @@ export default function Navbar() {
                 Track Order
               </Link>
             </li>
-            <li>
-              <Link
-                to="/admin"
-                onClick={() => setOpen(false)}
-                className="flex items-center gap-2 rounded-xl bg-brand-500 px-4 py-3 text-sm font-semibold text-white"
-              >
-                <User className="h-4 w-4" /> Login
-              </Link>
-            </li>
+
+            {user ? (
+              <>
+                <li className="mt-1 border-t border-black/5 px-4 pb-1 pt-3">
+                  <p className="truncate font-display text-sm font-bold">{displayName}</p>
+                  <p className="truncate text-xs text-charcoal/50">{user.email}</p>
+                </li>
+                {accountLinks.map((a) => (
+                  <li key={a.to}>
+                    <Link
+                      to={a.to}
+                      onClick={() => setOpen(false)}
+                      className="flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-semibold text-charcoal/70 hover:bg-black/5"
+                    >
+                      <span>{a.icon}</span>
+                      {a.label}
+                      {a.to === '/account/coupons' && couponCount > 0 && (
+                        <span className="ml-auto rounded-full bg-brand-500 px-2 py-0.5 text-[11px] font-bold text-white">
+                          {couponCount}
+                        </span>
+                      )}
+                    </Link>
+                  </li>
+                ))}
+                {isAdmin && (
+                  <li>
+                    <Link
+                      to="/admin/dashboard"
+                      onClick={() => setOpen(false)}
+                      className="flex items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-semibold text-charcoal/70 hover:bg-black/5"
+                    >
+                      <span>📊</span> Admin Panel
+                    </Link>
+                  </li>
+                )}
+                <li>
+                  <button
+                    onClick={signOut}
+                    className="flex w-full items-center gap-2.5 rounded-xl px-4 py-3 text-sm font-semibold text-red-500 hover:bg-red-50"
+                  >
+                    <span>🚪</span> Sign Out
+                  </button>
+                </li>
+              </>
+            ) : (
+              <>
+                <li>
+                  <Link
+                    to="/login"
+                    onClick={() => setOpen(false)}
+                    className="flex items-center gap-2 rounded-xl bg-brand-500 px-4 py-3 text-sm font-semibold text-white"
+                  >
+                    <User className="h-4 w-4" /> Sign In
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/signup"
+                    onClick={() => setOpen(false)}
+                    className="block rounded-xl px-4 py-3 text-center text-sm font-semibold text-charcoal/70 hover:bg-black/5"
+                  >
+                    Create an account
+                  </Link>
+                </li>
+              </>
+            )}
           </ul>
         </div>
       )}

@@ -1,4 +1,5 @@
 import DealCard from '../components/DealCard.jsx'
+import JoinCta from '../components/JoinCta.jsx'
 import SectionHeading from '../components/SectionHeading.jsx'
 import { useStore } from '../context/StoreContext.jsx'
 
@@ -22,6 +23,10 @@ export default function Deals() {
         title="More Food, Less Money"
         subtitle="Bundled up and marked down — the tastiest way to save."
       />
+
+      <div className="mt-8">
+        <JoinCta variant="inline" />
+      </div>
 
       <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {deals.map((deal) => (

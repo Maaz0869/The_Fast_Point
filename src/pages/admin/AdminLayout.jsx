@@ -8,10 +8,12 @@ import { Menu as MenuIcon, Close } from '../../components/Icons.jsx'
 const navItems = [
   { to: '/admin/dashboard', label: 'Dashboard', icon: '📊' },
   { to: '/admin/orders', label: 'Orders', icon: '🧾' },
+  { to: '/admin/customers', label: 'Customers', icon: '👥' },
   { to: '/admin/messages', label: 'Messages', icon: '✉️' },
   { to: '/admin/menu', label: 'Menu Items', icon: '🍔' },
   { to: '/admin/deals', label: 'Deals & Offers', icon: '🏷️' },
   { to: '/admin/discounts', label: 'Discount Codes', icon: '🎟️' },
+  { to: '/admin/promotions', label: 'WhatsApp Blast', icon: '📣' },
   { to: '/admin/slider', label: 'Hero Slider', icon: '🖼️' },
   { to: '/admin/delivery', label: 'Delivery Rules', icon: '🛵' },
   { to: '/admin/expenses', label: 'Expenses', icon: '💸' },

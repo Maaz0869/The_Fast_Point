@@ -74,7 +74,8 @@ const map = {
     order: { column: 'created_at', ascending: true },
     fields: {
       code: 'code', type: 'type', value: 'value', description: 'description',
-      minOrder: 'min_order',
+      minOrder: 'min_order', userId: 'user_id', expiresAt: 'expires_at',
+      maxUses: 'max_uses', usedCount: 'used_count',
     },
     from: (r) => ({
       code: r.code,
@@ -82,6 +83,29 @@ const map = {
       value: Number(r.value),
       description: r.description,
       ...(r.min_order != null ? { minOrder: Number(r.min_order) } : {}),
+      // Personal coupons: user_id names the one account that may use the code.
+      // A null user_id is a public promo code, as before.
+      userId: r.user_id || null,
+      expiresAt: r.expires_at || null,
+      maxUses: r.max_uses != null ? Number(r.max_uses) : null,
+      usedCount: Number(r.used_count || 0),
+    }),
+  },
+  profiles: {
+    table: 'profiles',
+    order: { column: 'created_at', ascending: false },
+    fields: {
+      id: 'id', email: 'email', name: 'name', phone: 'phone', address: 'address',
+      areaId: 'area_id', createdAt: 'created_at',
+    },
+    from: (r) => ({
+      id: r.id,
+      email: r.email || '',
+      name: r.name || '',
+      phone: r.phone || '',
+      address: r.address || '',
+      areaId: r.area_id || '',
+      createdAt: r.created_at,
     }),
   },
   orders: {
@@ -91,6 +115,7 @@ const map = {
       id: 'id', createdAt: 'created_at', orderType: 'order_type', customer: 'customer',
       items: 'items', subtotal: 'subtotal', deliveryFee: 'delivery_fee',
       discount: 'discount', total: 'total', payment: 'payment', status: 'status',
+      userId: 'user_id',
     },
     from: (r) => ({
       id: r.id,
@@ -104,6 +129,7 @@ const map = {
       total: Number(r.total),
       payment: r.payment,
       status: r.status,
+      userId: r.user_id || null,
     }),
   },
   expenses: {
@@ -229,7 +255,16 @@ export const db = {
   menu: makeRepo(map.menu),
   deals: makeRepo(map.deals),
   slides: makeRepo(map.slides),
-  discounts: makeRepo(map.discounts),
+  discounts: {
+    ...makeRepo(map.discounts),
+    // Customers can't write to `discounts` under RLS, so marking a coupon as
+    // used goes through this definer function. It only ever touches a code the
+    // caller is allowed to use (their own, or a public one).
+    async redeem(code) {
+      const { error } = await supabase.rpc('redeem_discount', { p_code: String(code) })
+      if (error) throw error
+    },
+  },
   expenses: makeRepo(map.expenses),
   suppliers: makeRepo(map.suppliers),
   businesses: makeRepo(map.businesses),
@@ -256,6 +291,37 @@ export const db = {
       const { data, error } = await supabase.rpc('track_order', { p_id: id })
       if (error) throw error
       return data ? { ...data, total: num(data.total) } : null
+    },
+    // A signed-in customer's own order history. The `user_id` filter is belt and
+    // braces — RLS already limits a customer to their own rows — but it also
+    // keeps an admin's account page showing *their* orders, not the whole shop's.
+    async mine(userId) {
+      if (!userId) return []
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return (data || []).map(map.orders.from)
+    },
+  },
+  profiles: {
+    // Admin only (the Customers page) — RLS blocks this for everyone else.
+    list: makeRepo(map.profiles).list,
+    async getMine(id) {
+      if (!id) return null
+      const { data, error } = await supabase.from('profiles').select('*').eq('id', id).maybeSingle()
+      if (error) throw error
+      return data ? map.profiles.from(data) : null
+    },
+    // Upsert (not update): the row is normally created by the sign-up trigger,
+    // but this still works if the trigger hasn't been installed yet.
+    async upsertMine(id, patch) {
+      const row = { ...toRow(map.profiles, patch), id, updated_at: new Date().toISOString() }
+      const { data, error } = await supabase.from('profiles').upsert(row).select().maybeSingle()
+      if (error) throw error
+      return data ? map.profiles.from(data) : null
     },
   },
   messages: {
@@ -319,14 +385,20 @@ export async function fetchPublic() {
 }
 
 export async function fetchAdmin() {
-  const [orders, expenses, suppliers, businesses, messages] = await Promise.all([
+  const [orders, expenses, suppliers, businesses, messages, customers] = await Promise.all([
     db.orders.list(),
     db.expenses.list(),
     db.suppliers.list(),
     db.businesses.list(),
     db.messages.list(),
+    // Registered customer accounts. Tolerated as empty so the admin panel still
+    // loads on a project where user-accounts.sql hasn't been run yet.
+    db.profiles.list().catch((e) => {
+      console.error('[db] profiles not available (run supabase/user-accounts.sql):', e)
+      return []
+    }),
   ])
-  return { orders, expenses, suppliers, businesses, messages }
+  return { orders, expenses, suppliers, businesses, messages, customers }
 }
 
 // ---- First-run seeding -----------------------------------------------------

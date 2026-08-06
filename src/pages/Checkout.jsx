@@ -1,11 +1,12 @@
-import { useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useAuth } from '../context/AuthContext.jsx'
 import { useCart } from '../context/CartContext.jsx'
 import { useStore } from '../context/StoreContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { rs } from '../utils/format.js'
 import { buildOrderMessage, buildWhatsappLink, sendOrderToWhatsapp } from '../utils/whatsapp.js'
-import { Check } from '../components/Icons.jsx'
+import { Check, User } from '../components/Icons.jsx'
 
 const ORDER_TYPES = [
   { id: 'Delivery', label: 'Delivery', icon: '🛵', hint: 'To your door' },
@@ -21,9 +22,19 @@ const PAYMENTS = [
 
 export default function Checkout() {
   const { items, subtotal, count, clearCart } = useCart()
-  const { calcDeliveryFee, deliveryRules, findDiscount, placeOrder, restaurant } = useStore()
+  const {
+    availableCoupons,
+    calcDeliveryFee,
+    deliveryRules,
+    placeOrder,
+    redeemDiscount,
+    restaurant,
+    validateDiscount,
+  } = useStore()
+  const { user, profile, updateProfile } = useAuth()
   const toast = useToast()
   const navigate = useNavigate()
+  const location = useLocation()
 
   const [orderType, setOrderType] = useState('Delivery')
   const [customer, setCustomer] = useState({ name: '', phone: '', address: '' })
@@ -34,6 +45,10 @@ export default function Checkout() {
   const [applied, setApplied] = useState(null)
   const [errors, setErrors] = useState({})
   const [placing, setPlacing] = useState(false)
+  const [saveDetails, setSaveDetails] = useState(true)
+  // Prefill once: after that the customer's own edits must never be overwritten
+  // (the profile object changes identity whenever it's saved).
+  const [prefilled, setPrefilled] = useState(false)
 
   const distanceMode = deliveryRules.mode === 'distance'
   const zoneMode = deliveryRules.mode === 'zone'
@@ -54,6 +69,20 @@ export default function Checkout() {
 
   const total = Math.max(0, subtotal - discount + deliveryFee)
 
+  // A signed-in customer never retypes their details.
+  useEffect(() => {
+    if (!profile || prefilled) return
+    setCustomer((c) => ({
+      name: c.name || profile.name || '',
+      phone: c.phone || profile.phone || '',
+      address: c.address || profile.address || '',
+    }))
+    if (profile.areaId && areas.some((a) => a.id === profile.areaId)) {
+      setAreaId((a) => a || profile.areaId)
+    }
+    setPrefilled(true)
+  }, [profile, prefilled, areas])
+
   if (count === 0) {
     return (
       <div className="section py-24 text-center">
@@ -65,16 +94,15 @@ export default function Checkout() {
     )
   }
 
-  const applyCode = () => {
-    const found = findDiscount(codeInput)
-    if (!found) {
-      toast.error('Invalid discount code')
+  // One shared rule set (expiry, use limits, whose coupon it is, minimum order)
+  // so typing a code and tapping a suggested coupon behave identically.
+  const applyCode = (code = codeInput) => {
+    const { discount: found, error } = validateDiscount(code, subtotal)
+    if (error) {
+      toast.error(error)
       return
     }
-    if (found.minOrder && subtotal < found.minOrder) {
-      toast.error(`Minimum order ${rs(found.minOrder)} required for this code`)
-      return
-    }
+    setCodeInput(found.code)
     setApplied(found)
     toast.success(`Code ${found.code} applied!`)
   }
@@ -106,6 +134,9 @@ export default function Checkout() {
       lineTotal: l.unitPrice * l.qty,
       extras: l.extras,
       spiceLabel: l.spiceLabel,
+      // Kept so "Order Again" can rebuild this exact line from the menu later.
+      itemId: l.itemId ?? null,
+      sizeId: l.sizeId ?? null,
     })),
     subtotal,
     deliveryFee,
@@ -139,6 +170,18 @@ export default function Checkout() {
       toast.error("Couldn't place your order. Please check your connection and try again.")
       return
     }
+    // Only now that the order is safely stored: burn the coupon (so a failed
+    // checkout can't waste a single-use code) and remember the details.
+    if (applied && discount > 0) redeemDiscount(applied.code)
+    if (user && saveDetails) {
+      updateProfile({
+        name: customer.name,
+        phone: customer.phone,
+        ...(customer.address ? { address: customer.address } : {}),
+        ...(areaId ? { areaId } : {}),
+      }).catch(() => {})
+    }
+
     const message = buildOrderMessage({
       items: itemsForMsg(items),
       orderType,
@@ -167,7 +210,33 @@ export default function Checkout() {
 
   return (
     <div className="section py-10">
-      <h1 className="mb-8 font-display text-3xl font-extrabold">Checkout</h1>
+      <h1 className="mb-6 font-display text-3xl font-extrabold">Checkout</h1>
+
+      {!user && (
+        <div className="mb-6 flex flex-wrap items-center gap-3 rounded-2xl bg-brand-50 px-5 py-4">
+          <User className="h-5 w-5 flex-none text-brand-600" />
+          <p className="min-w-0 flex-1 text-sm font-medium text-brand-700">
+            <b>Sign in for personal coupons</b> — your details get filled in automatically and every
+            order is saved to your account.
+          </p>
+          <div className="flex gap-2">
+            <Link
+              to="/login"
+              state={{ from: location }}
+              className="btn-primary px-4 py-2 text-sm"
+            >
+              Sign In
+            </Link>
+            <Link
+              to="/signup"
+              state={{ from: location }}
+              className="btn-outline px-4 py-2 text-sm"
+            >
+              Sign Up
+            </Link>
+          </div>
+        </div>
+      )}
 
       <form onSubmit={submit} className="grid gap-8 lg:grid-cols-[1fr_380px]">
         <div className="space-y-6">
@@ -279,6 +348,17 @@ export default function Checkout() {
                 </div>
               )}
             </div>
+            {user && (
+              <label className="mt-4 flex cursor-pointer items-center gap-2 text-sm font-medium text-charcoal/65">
+                <input
+                  type="checkbox"
+                  checked={saveDetails}
+                  onChange={(e) => setSaveDetails(e.target.checked)}
+                  className="h-4 w-4 accent-brand-500"
+                />
+                Save these details to my account for next time
+              </label>
+            )}
             {orderType !== 'Delivery' && (
               <p className="mt-3 rounded-lg bg-brand-50 p-3 text-xs text-brand-700">
                 {orderType === 'Take Away'
@@ -341,10 +421,40 @@ export default function Checkout() {
                 onChange={(e) => setCodeInput(e.target.value)}
                 placeholder="Discount code"
               />
-              <button type="button" onClick={applyCode} className="btn-dark flex-none px-4 py-2 text-sm">
+              <button
+                type="button"
+                onClick={() => applyCode()}
+                className="btn-dark flex-none px-4 py-2 text-sm"
+              >
                 Apply
               </button>
             </div>
+
+            {/* Coupons this customer can actually use, personal ones first */}
+            {availableCoupons.length > 0 && applied === null && (
+              <div className="mt-3">
+                <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-charcoal/40">
+                  {user ? 'Available for you' : 'Available offers'}
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {availableCoupons.map((c) => (
+                    <button
+                      type="button"
+                      key={c.code}
+                      onClick={() => applyCode(c.code)}
+                      title={c.description}
+                      className={`chip transition hover:brightness-95 ${
+                        c.userId
+                          ? 'bg-brand-500 text-white'
+                          : 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
+                      }`}
+                    >
+                      🎟️ {c.code} · {c.type === 'percent' ? `${c.value}%` : rs(c.value)} off
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
             {applied && discount > 0 && (
               <p className="mt-2 text-xs font-semibold text-emerald-600">
                 ✓ {applied.code} — {applied.description}

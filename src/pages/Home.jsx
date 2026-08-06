@@ -5,6 +5,7 @@ import SectionHeading from '../components/SectionHeading.jsx'
 import MenuItemCard from '../components/MenuItemCard.jsx'
 import DealCard from '../components/DealCard.jsx'
 import ItemModal from '../components/ItemModal.jsx'
+import JoinCta from '../components/JoinCta.jsx'
 import { useStore } from '../context/StoreContext.jsx'
 
 export default function Home() {
@@ -97,6 +98,9 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Join / sign-up invitation (hides itself for signed-in customers) */}
+      <JoinCta />
 
       {/* CTA band */}
       <section className="section py-14">

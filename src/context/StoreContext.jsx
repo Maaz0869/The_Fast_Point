@@ -16,6 +16,7 @@ import {
   SLIDES,
 } from '../data/mockData.js'
 import { db, fetchAdmin, fetchPublic, seedIfEmpty } from '../lib/db.js'
+import { rs } from '../utils/format.js'
 import { useAuth } from './AuthContext.jsx'
 
 // Fire-and-forget a Supabase write; log (don't crash) if it fails so the
@@ -142,7 +143,7 @@ const applyContactMigration = (rest) => {
 const migrateRestaurant = (rest) => applyContactMigration(applyLocationMigration(rest))
 
 export function StoreProvider({ children }) {
-  const { isAdmin } = useAuth()
+  const { isAdmin, user } = useAuth()
 
   // Read localStorage exactly once (not on every render). Each useState reads
   // this the first time it mounts and never again.
@@ -163,6 +164,7 @@ export function StoreProvider({ children }) {
   const [offerBanner, setOfferBanner] = useState(() => saved?.offerBanner ?? OFFER_BANNER)
 
   // Admin-only data: never read from the cache, always loaded after sign-in.
+  const [customers, setCustomers] = useState([])
   const [orders, setOrders] = useState([])
   const [expenses, setExpenses] = useState([])
   const [suppliers, setSuppliers] = useState([])
@@ -236,6 +238,23 @@ export function StoreProvider({ children }) {
     }
   }, [applyPublic])
 
+  // ---- Reload discount codes whenever the signed-in customer changes -------
+  // Public promo codes are readable by everyone; a customer's personal coupons
+  // are only returned once their session is attached to the request. Re-running
+  // this on sign-out drops the personal ones again.
+  useEffect(() => {
+    let cancelled = false
+    db.discounts
+      .list()
+      .then((list) => {
+        if (!cancelled) setDiscounts(list)
+      })
+      .catch((e) => console.error('[store] discount load failed:', e))
+    return () => {
+      cancelled = true
+    }
+  }, [user?.id])
+
   // ---- Load admin data once signed in -------------------------------------
   // Orders, finances and contact messages are admin-only under RLS, so they can
   // only be fetched with an admin session — and are dropped again on logout.
@@ -246,6 +265,7 @@ export function StoreProvider({ children }) {
       setSuppliers([])
       setBusinesses([])
       setMessages([])
+      setCustomers([])
       return
     }
     let cancelled = false
@@ -266,6 +286,7 @@ export function StoreProvider({ children }) {
         setSuppliers(data.suppliers)
         setBusinesses(data.businesses)
         setMessages(data.messages)
+        setCustomers(data.customers)
       } catch (e) {
         console.error('[store] admin data load failed:', e)
       }
@@ -326,6 +347,13 @@ export function StoreProvider({ children }) {
     setDiscounts((d) => [...d, code])
     save(db.discounts.upsert(code))
   }, [])
+  // Issue a batch in one round-trip — used when every customer gets their own
+  // personal code at once.
+  const addDiscounts = useCallback((codes) => {
+    if (!codes.length) return
+    setDiscounts((d) => [...d, ...codes])
+    save(db.discounts.upsertMany(codes))
+  }, [])
   const deleteDiscount = useCallback((code) => {
     setDiscounts((d) => d.filter((x) => x.code !== code))
     save(db.discounts.remove(code))
@@ -334,6 +362,57 @@ export function StoreProvider({ children }) {
     (code) => discounts.find((d) => d.code.toLowerCase() === String(code).trim().toLowerCase()),
     [discounts],
   )
+  // The loaded list only ever contains public codes plus the signed-in
+  // customer's own, so "is this coupon mine?" is a simple field check.
+  const isCouponUsable = useCallback(
+    (d) =>
+      !!d &&
+      !(d.expiresAt && new Date(d.expiresAt).getTime() < Date.now()) &&
+      !(d.maxUses != null && d.usedCount >= d.maxUses),
+    [],
+  )
+  // Personal coupons issued to the signed-in customer, newest first.
+  const myCoupons = useMemo(
+    () => (user ? discounts.filter((d) => d.userId === user.id) : []),
+    [discounts, user],
+  )
+  // Everything the customer could apply right now, personal coupons first.
+  const availableCoupons = useMemo(
+    () =>
+      discounts
+        .filter((d) => (!d.userId || d.userId === user?.id) && isCouponUsable(d))
+        .sort((a, b) => (b.userId ? 1 : 0) - (a.userId ? 1 : 0)),
+    [discounts, user, isCouponUsable],
+  )
+  // One place that decides whether a code may be used on this order, so the
+  // checkout form and the coupon chips can never disagree.
+  const validateDiscount = useCallback(
+    (code, subtotal) => {
+      const d = findDiscount(code)
+      if (!d) return { error: 'Invalid discount code' }
+      if (d.userId && d.userId !== user?.id)
+        return { error: 'This code belongs to another account' }
+      if (d.expiresAt && new Date(d.expiresAt).getTime() < Date.now())
+        return { error: 'This code has expired' }
+      if (d.maxUses != null && d.usedCount >= d.maxUses)
+        return { error: 'This code has already been used' }
+      if (d.minOrder && subtotal < d.minOrder)
+        return { error: `Minimum order ${rs(d.minOrder)} required for this code` }
+      return { discount: d }
+    },
+    [findDiscount, user],
+  )
+  // Counted after the order is safely stored, so a failed checkout never burns a
+  // single-use coupon. Local state is bumped too, so the UI reflects it at once.
+  const redeemDiscount = useCallback((code) => {
+    const key = String(code).trim().toLowerCase()
+    setDiscounts((list) =>
+      list.map((d) =>
+        d.code.toLowerCase() === key ? { ...d, usedCount: (d.usedCount || 0) + 1 } : d,
+      ),
+    )
+    save(db.discounts.redeem(code))
+  }, [])
 
   // ---- Delivery fee calculation ------------------------------------------
   const calcDeliveryFee = useCallback(
@@ -600,14 +679,21 @@ export function StoreProvider({ children }) {
       updateSlide,
       deleteSlide,
       addDiscount,
+      addDiscounts,
       deleteDiscount,
       findDiscount,
+      validateDiscount,
+      redeemDiscount,
+      isCouponUsable,
+      myCoupons,
+      availableCoupons,
       calcDeliveryFee,
       placeOrder,
       trackOrder,
       updateOrderStatus,
       deleteOrder,
       findOrder,
+      customers,
       messages,
       sendMessage,
       setMessageRead,
@@ -656,14 +742,21 @@ export function StoreProvider({ children }) {
       updateSlide,
       deleteSlide,
       addDiscount,
+      addDiscounts,
       deleteDiscount,
       findDiscount,
+      validateDiscount,
+      redeemDiscount,
+      isCouponUsable,
+      myCoupons,
+      availableCoupons,
       calcDeliveryFee,
       placeOrder,
       trackOrder,
       updateOrderStatus,
       deleteOrder,
       findOrder,
+      customers,
       messages,
       sendMessage,
       setMessageRead,

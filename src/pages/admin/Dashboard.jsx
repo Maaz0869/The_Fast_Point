@@ -1,6 +1,11 @@
 import { Link } from 'react-router-dom'
 import { useStore } from '../../context/StoreContext.jsx'
 import { rs, formatDateTime } from '../../utils/format.js'
+import StatusBadge from '../../components/StatusBadge.jsx'
+
+// Re-exported so the admin screens that already import it from here keep working
+// while the customer account pages use the shared component directly.
+export { StatusBadge }
 
 export default function Dashboard() {
   const { orders, menu, deals, discounts } = useStore()
@@ -110,12 +115,3 @@ export default function Dashboard() {
   )
 }
 
-export function StatusBadge({ status }) {
-  const map = {
-    Pending: 'bg-gray-100 text-gray-600',
-    Preparing: 'bg-amber-100 text-amber-700',
-    'Out for Delivery': 'bg-blue-100 text-blue-700',
-    Delivered: 'bg-emerald-100 text-emerald-700',
-  }
-  return <span className={`chip ${map[status] || 'bg-gray-100 text-gray-600'}`}>{status}</span>
-}

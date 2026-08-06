@@ -2,6 +2,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import { useCart } from '../context/CartContext.jsx'
 import { useStore } from '../context/StoreContext.jsx'
 import { rs } from '../utils/format.js'
+import JoinCta from '../components/JoinCta.jsx'
 import { Minus, Plus, Trash } from '../components/Icons.jsx'
 
 export default function Cart() {
@@ -29,7 +30,11 @@ export default function Cart() {
 
   return (
     <div className="section py-10">
-      <h1 className="mb-8 font-display text-3xl font-extrabold">Your Cart</h1>
+      <h1 className="mb-6 font-display text-3xl font-extrabold">Your Cart</h1>
+
+      <div className="mb-6">
+        <JoinCta variant="inline" />
+      </div>
 
       <div className="grid gap-8 lg:grid-cols-[1fr_360px]">
         {/* Items */}

@@ -15,16 +15,86 @@ A modern, fully responsive fast-food ordering website built with **React**, **Re
 - **Open/Closed status** — ordering is disabled when the restaurant is toggled closed.
 - **WhatsApp ordering** — opens WhatsApp with the order pre-filled.
 
+### Customer Accounts (`/signup`, `/login`, `/account`)
+Customers can create an account with **Supabase Auth** (email + password) and get
+their own dashboard at `/account`:
+
+- **Overview** — orders placed, total spent, coupons waiting, member since.
+- **My Orders** — full history with items and totals, **Order Again** (rebuilds
+  the cart at today's prices), invoice download and a link to tracking.
+- **My Coupons** — the private coupons the shop has issued to them, with expiry
+  and uses-left, plus the public promo codes.
+- **Profile** — saved name / phone / address / usual delivery area, and a
+  password change.
+
+Signing in also improves checkout: details are filled in automatically, usable
+coupons show as one-tap chips, and the order is linked to the account. Guest
+checkout still works exactly as before — nothing is forced.
+
+**Where a customer finds sign-up** — the navbar button (and the mobile menu), a
+benefits block on the home page, a one-line strip on the cart and deals pages, a
+prompt on checkout, and *My Account* in the footer. All of them carry the current
+page along, so the customer lands back where they were afterwards, and they all
+hide themselves once signed in (`src/components/JoinCta.jsx`).
+
+> Ordering is never gated behind an account.
+
 ### Admin Panel (`/admin`)
 Sign in with the **Supabase Auth** email + password of a user listed in the
 `admins` table (see *Admin access* below). Public sign-ups are disabled, so an
 account can only be created from the Supabase dashboard.
 
 - Dashboard with revenue, order and menu stats
+- **Customers** — every registered account with their orders, total spent and
+  last order, plus two ways to hand out private discount codes (percentage or
+  flat, minimum order, expiry, use limit):
+  - **Give Coupon** — one code for one customer
+  - **Coupon for Everyone** — one *unique* code per customer in a single batch,
+    optionally skipping anyone who already has a live one. Because each code is
+    tied to an account, a code passed on to a friend won't work for them.
 - **Messages** — inbox for contact-form submissions (unread badge, mark read, reply by email)
 - Manage **menu items** (add / edit / delete), with image upload to Supabase Storage
 - Manage **deals & offers** and the offer banner
 - Manage **discount codes**
+- **WhatsApp Blast** — write an offer once and send it to every customer on
+  WhatsApp, personalised per person. Optionally attach a private coupon (minted
+  only when that customer is actually messaged), an existing public code, or no
+  code at all. Includes guest customers (anyone who has ordered by phone),
+  live preview, per-recipient progress, and copy tools for broadcast lists.
+
+  Two ways to send, and the screen shows whichever is available:
+
+  - **Send to all at once** — one click, no tapping, via the official WhatsApp
+    Cloud API. Needs the one-time setup below.
+  - **One tap per customer** — always available, free, no setup: each chat opens
+    with the message ready and the admin presses send. Progress is tracked so
+    nobody is messaged twice.
+
+### 📣 One-click WhatsApp sending (optional)
+WhatsApp does not let a website message arbitrary numbers unattended — that is a
+platform rule, not a limitation here (and CallMeBot, used for order alerts, only
+delivers to the shop's *own* number). Unattended sending needs Meta's official
+**WhatsApp Business Cloud API**:
+
+1. Create a **Meta Business** account and a **WhatsApp Business** account (free).
+2. Add a sender phone number and copy its **Phone number ID**.
+3. Create a **permanent access token** for a system user with `whatsapp_business_messaging`.
+4. In **Vercel → Settings → Environment Variables** add `WHATSAPP_TOKEN` and
+   `WHATSAPP_PHONE_ID` (optionally `WHATSAPP_TEMPLATE`, `WHATSAPP_LANGUAGE`),
+   then redeploy. See `.env.example`.
+5. Get one **marketing template** approved. Its body must use the variables in
+   this order: `{{1}}` customer's first name, `{{2}}` the offer text, `{{3}}` the
+   coupon code. Enter the template's name on the WhatsApp Blast screen.
+
+> Meta charges per marketing message, and a template is required for anyone who
+> hasn't messaged the shop in the last 24 hours. The screen also offers plain-text
+> mode, which only reaches people inside that 24-hour window — handy for testing
+> on your own number.
+
+The token is read only by the serverless function in `api/whatsapp-broadcast.js`
+(no `VITE_` prefix, so it is never bundled into the browser), and that function
+authorises the caller with the same `is_admin()` check the database uses — a
+signed-in customer calling it directly gets a 403.
 - Manage the **hero slider**
 - Set **delivery charge rules** (free-above threshold + tiered charges) with a live preview
 - **Settings** — restaurant info, opening hours, and open/close toggle
@@ -84,10 +154,14 @@ src/
 ├── context/        # Cart, Auth, Store (data) and Toast providers
 ├── lib/            # Supabase client + data-access layer (db.js)
 ├── data/           # Mock/seed data (menu, deals, slides, orders, rules)
-├── pages/          # Customer pages + admin/ subfolder
-├── utils/          # Currency formatting + WhatsApp helpers
+├── pages/          # Customer pages + account/ and admin/ subfolders
+├── utils/          # Currency formatting, invoices, reorder + WhatsApp helpers
 ├── App.jsx         # Routes
 └── main.jsx        # App entry + provider composition
+api/
+└── whatsapp-broadcast.js   # Serverless: one-click WhatsApp send (admin only)
+supabase/
+└── user-accounts.sql       # One-time schema for customer accounts & coupons
 ```
 
 ## 🔌 Backend (Supabase)
@@ -96,9 +170,14 @@ and mirrors every change back to **Supabase** via `src/lib/db.js`
 (`src/lib/supabase.js` holds the client).
 
 **Tables** — `menu_items`, `deals`, `slides`, `discounts`, `orders`, `expenses`,
-`suppliers`, `businesses`, `contact_messages`, `admins`, and a key/value
-`settings` table (restaurant info, delivery rules, offer banner, order counter,
-`seeded` flag).
+`suppliers`, `businesses`, `contact_messages`, `profiles`, `admins`, and a
+key/value `settings` table (restaurant info, delivery rules, offer banner, order
+counter, `seeded` flag).
+
+`profiles` holds one row per customer account (name, phone, address, usual
+delivery area). `orders.user_id` links an order to the account that placed it —
+null for a guest checkout. `discounts.user_id` is what makes a coupon *personal*:
+null means a public promo code, set means only that customer can see or use it.
 
 **What loads when** — the catalogue (menu, deals, slides, discount codes,
 settings) is world-readable and cached in `localStorage` for an instant first
@@ -112,23 +191,48 @@ one-shot: clearing every expense or supplier later can't bring demo rows back.
 ### 🔐 Security model
 Row Level Security is on for every table, and the policies are split in two:
 
-| | Visitor (`anon`) | Admin (signed in + in `admins`) |
-|---|---|---|
-| Catalogue + settings | read | read / write |
-| Orders, expenses, suppliers, businesses | none | read / write |
-| Contact messages | insert only (length-bounded) | read / write |
-| `images` bucket | read | read / write |
+| | Visitor (`anon`) | Customer (signed in) | Admin (signed in + in `admins`) |
+|---|---|---|---|
+| Catalogue + settings | read | read | read / write |
+| Discount codes | public codes only | public + **their own** | read / write |
+| Orders | none | **their own**, read only | read / write |
+| Profiles | none | **their own**, read / write | read |
+| Expenses, suppliers, businesses | none | none | read / write |
+| Contact messages | insert only (length-bounded) | insert only | read / write |
+| `images` bucket | read | read | read / write |
 
-Two `security definer` functions give visitors exactly the two writes they need
-without any table access:
+Three `security definer` functions give visitors and customers exactly the writes
+they need without any table access:
 
 - **`place_order(jsonb)`** — assigns the next order number atomically from
   `settings.order_counter` and inserts the order.
 - **`track_order(text)`** — returns one order's status, type and total.
+- **`redeem_discount(text)`** — counts a coupon as used after a successful
+  checkout, and only for a code the caller is allowed to use.
 
 `is_admin()` (used by every admin policy) checks the caller against the `admins`
-table, and public sign-ups are disabled — so "authenticated" can only ever mean
-the shop owner.
+table — so a customer account can never reach the admin panel or anyone else's
+data, no matter that it is also "authenticated".
+
+### 🧾 Setup for customer accounts
+> **Already applied to the live project** — this is the recipe for a fresh one.
+
+1. **Run the schema.** SQL Editor → New query → paste
+   [`supabase/user-accounts.sql`](supabase/user-accounts.sql) → **Run**. It creates
+   `profiles`, adds `orders.user_id`, extends `discounts` with owner/expiry/use
+   limits, adds `redeem_discount()`, and grants the signed-in (`authenticated`)
+   role read access to the catalogue. It is idempotent — running it twice is safe.
+2. **Allow sign-ups.** Authentication → *Sign In / Providers* → **Email**:
+   - *Allow new users to sign up* → **ON** (it ships off)
+   - *Confirm email* → **OFF** — the built-in mailer only sends a couple of
+     messages an hour, which would block real customers. With it off, signing up
+     logs the customer straight in. (Turn it back on once a real SMTP provider is
+     configured under Authentication → Emails; the sign-up page already handles
+     the "check your inbox" case.)
+
+Without step 1, sign-up fails with a database error; without step 2, Supabase
+rejects sign-ups with *"Signups not allowed for this instance"* — the app shows a
+friendly message either way.
 
 ### 👤 Admin access
 To add or replace an admin:
