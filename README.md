@@ -85,6 +85,32 @@ account can only be created from the Supabase dashboard.
     with the message ready and the admin presses send. Progress is tracked so
     nobody is messaged twice.
 
+### 📧 Order emails (optional)
+Every new order can also land in the shop's inbox, automatically — a backup for
+WhatsApp, and a searchable record. Formatted HTML: order number, customer with a
+tap-to-call phone link, the full item list and the totals.
+
+1. Sign up at [resend.com](https://resend.com) **using the address you want the
+   orders sent to** — then the default sender works right away, with no domain
+   or DNS setup. Copy the API key.
+2. In **Vercel → Settings → Environment Variables** add `RESEND_API_KEY` and
+   `SUPABASE_SERVICE_ROLE_KEY` (Supabase → Settings → API). Optionally
+   `ORDER_EMAIL_TO` (defaults to `thesnackhut001@gmail.com`, comma-separate for
+   several) and `ORDER_EMAIL_FROM`. Redeploy. See `.env.example`.
+
+That's it — checkout calls `/api/order-email` as soon as the order is stored.
+
+**Want it even when the browser can't help** (tab closed, signal lost, order
+created from the admin panel)? Run `supabase/order-email.sql` to add a database
+trigger that posts the same request. Both paths can be on at once: the function
+claims each order with `UPDATE … WHERE emailed_at IS NULL`, so only one caller
+ever wins and the shop gets exactly one email.
+
+> The browser only ever sends an order **id**. The function reads the order back
+> with the service role, so the amounts in the email come from the database —
+> they can't be forged by a tampered client. Ids older than 30 minutes are
+> ignored, so nobody can walk the table re-mailing old orders.
+
 ### 📣 One-click WhatsApp sending (optional)
 WhatsApp does not let a website message arbitrary numbers unattended — that is a
 platform rule, not a limitation here (and CallMeBot, used for order alerts, only
@@ -176,6 +202,7 @@ src/
 ├── App.jsx         # Routes
 └── main.jsx        # App entry + provider composition
 api/
+├── order-email.js          # Serverless: emails each new order to the shop
 └── whatsapp-broadcast.js   # Serverless: one-click WhatsApp send (admin only)
 supabase/
 └── user-accounts.sql       # One-time schema for customer accounts & coupons

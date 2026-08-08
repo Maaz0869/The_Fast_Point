@@ -7,6 +7,7 @@ import { useToast } from '../context/ToastContext.jsx'
 import { rs } from '../utils/format.js'
 import { buildOrderMessage, buildWhatsappLink, sendOrderToWhatsapp } from '../utils/whatsapp.js'
 import { clearPromoCode, readPromoCode } from '../utils/promoLink.js'
+import { emailOrderToShop } from '../lib/orderEmail.js'
 import { Check, User } from '../components/Icons.jsx'
 
 const ORDER_TYPES = [
@@ -219,6 +220,10 @@ export default function Checkout() {
     } else {
       window.open(buildWhatsappLink(restaurant.whatsapp, message), '_blank')
     }
+    // …and the same order by email, so it is waiting in the shop's inbox even if
+    // nobody was watching WhatsApp. Fire-and-forget on purpose: the order is
+    // already stored, so the customer must never see a mail problem.
+    emailOrderToShop(record.id)
     clearCart()
     setPlacing(false)
     toast.success('Order placed successfully! 🎉')
