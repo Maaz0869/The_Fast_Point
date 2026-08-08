@@ -1,0 +1,8 @@
+User-agent: *
+Allow: /
+
+# Nothing behind a login belongs in search results.
+Disallow: /admin
+Disallow: /account
+Disallow: /checkout
+Disallow: /order/

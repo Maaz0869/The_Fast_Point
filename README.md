@@ -178,16 +178,39 @@ VITE_SUPABASE_ANON_KEY=your-anon-key
 > key or a `sbp_` management token.
 
 ## ▲ Deploy to Vercel
-The repo is Vercel-ready (`vercel.json` sets the Vite framework, build command,
-and SPA rewrites so deep links like `/menu` and `/admin` work on refresh).
+The repo is Vercel-ready. `vercel.json` sets the Vite framework and build
+command, SPA rewrites so deep links like `/menu` and `/admin` survive a refresh
+(with `/api/*` excluded so the functions still route), a 60s limit for those
+functions, long-lived caching for hashed assets, and a few baseline security
+headers.
 
 1. Push the repo to GitHub (already done).
 2. On [vercel.com](https://vercel.com), **Add New → Project** and import this repo.
 3. Vercel auto-detects Vite — no build settings to change
    (build `npm run build`, output `dist`).
-4. *(Optional)* Add `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` under
-   **Settings → Environment Variables** to override the built-in defaults.
-5. **Deploy.** Every push to the connected branch redeploys automatically.
+4. Add the environment variables you need (below), then **Deploy**. Every push
+   to the production branch redeploys automatically.
+
+### Environment variables
+Nothing is required — the app runs with built-in Supabase defaults. Each block
+below simply switches on the feature next to it.
+
+| Variable | Needed for |
+| --- | --- |
+| `VITE_SITE_URL` | **Recommended.** Your domain, e.g. `https://thesnackhut.vercel.app`. Makes the WhatsApp/Facebook link-preview card show the logo — without it the preview still works, just plainer. |
+| `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | Pointing at a different Supabase project than the built-in default. |
+| `RESEND_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | Emailing each order to the shop. |
+| `ORDER_EMAIL_TO`, `ORDER_EMAIL_FROM`, `ORDER_EMAIL_SECRET` | Overriding where order emails go, who they come from, and the database-webhook secret. |
+| `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_ID` | One-click WhatsApp broadcast. |
+| `WHATSAPP_TEMPLATE`, `WHATSAPP_LANGUAGE` | Defaults for the broadcast screen. |
+
+> Only `VITE_`-prefixed variables reach the browser. The Resend key, the service
+> role key and the WhatsApp token deliberately have no prefix, so they stay on
+> the server — never add one to them.
+
+Changing an environment variable does **not** affect the running site until you
+redeploy: `VITE_` ones are baked into the bundle at build time, and the rest are
+read when a function cold-starts.
 
 ## 📁 Project Structure
 
