@@ -22,12 +22,14 @@ const slug = (s) =>
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
 
-// Default rows offered when turning sizes on (e.g. pizza).
+// Default rows offered when turning sizes on. These match the four pizza sizes
+// on the printed menu, so a new pizza lines up with the existing ones instead
+// of quietly introducing a second naming scheme.
 const DEFAULT_SIZES = [
-  { id: 'small', name: 'Small', price: '' },
-  { id: 'medium', name: 'Medium', price: '' },
-  { id: 'large', name: 'Large', price: '' },
-  { id: 'xl', name: 'Extra Large', price: '' },
+  { id: 'r', name: 'Regular 7"', price: '' },
+  { id: 'm', name: 'Medium 11"', price: '' },
+  { id: 'l', name: 'Large 13"', price: '' },
+  { id: 'el', name: 'Extra Large 16"', price: '' },
 ]
 
 export default function ManageMenu() {
