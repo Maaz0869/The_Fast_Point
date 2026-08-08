@@ -4,6 +4,7 @@ import Footer from './components/Footer.jsx'
 import OfferBanner from './components/OfferBanner.jsx'
 import ClosedBanner from './components/ClosedBanner.jsx'
 import ScrollToTop from './components/ScrollToTop.jsx'
+import PromoCatcher from './components/PromoCatcher.jsx'
 import ProtectedRoute from './components/ProtectedRoute.jsx'
 import UserRoute from './components/UserRoute.jsx'
 
@@ -52,6 +53,7 @@ export default function App() {
   return (
     <div className="flex min-h-screen flex-col">
       <ScrollToTop />
+      <PromoCatcher />
       {!isAdmin && (
         <>
           <OfferBanner />

@@ -13,6 +13,7 @@ import {
   suggestCode,
 } from '../../utils/coupons.js'
 import { buildWhatsappLink } from '../../utils/whatsapp.js'
+import { buildPromoLink } from '../../utils/promoLink.js'
 import { Check, Whatsapp } from '../../components/Icons.jsx'
 
 // ---------------------------------------------------------------------------
@@ -42,26 +43,37 @@ export const toWaNumber = (phone, countryCode = '92') => {
   return d
 }
 
-const DEFAULT_TEMPLATE = `Hi {name}! 🍔
+// The message is assembled from the parts actually in play, so a blast with no
+// coupon never ships an empty "Your code:" line, and one carrying a deal shows
+// the deal itself rather than just a vague sentence about it.
+const buildTemplate = ({ withDeal, withCoupon }) =>
+  [
+    'Hi {name}! 🍔',
+    '',
+    '{offer}',
+    ...(withDeal ? ['', '{deal}'] : []),
+    ...(withCoupon ? ['', 'Your code: *{code}*', 'Valid till: {expiry}'] : []),
+    '',
+    'Order here: {link}',
+    '— {shop}',
+  ].join('\n')
 
-{offer}
-
-Your code: *{code}*
-Valid till: {expiry}
-
-Order here: {link}
-— {shop}`
-
-const NO_COUPON_TEMPLATE = `Hi {name}! 🍔
-
-{offer}
-
-Order here: {link}
-— {shop}`
+// What {deal} expands to. `~text~` is WhatsApp's strike-through, so the old
+// price reads as crossed out in the chat exactly like it does on the site.
+const dealBlock = (d) =>
+  d
+    ? [
+        `🍔 *${d.name}* — ${rs(d.price)}${d.oldPrice ? ` ~${rs(d.oldPrice)}~` : ''}`,
+        d.description || '',
+      ]
+        .filter(Boolean)
+        .join('\n')
+    : ''
 
 export default function Promotions() {
   const {
     customers,
+    deals,
     orders,
     discounts,
     restaurant,
@@ -74,7 +86,10 @@ export default function Promotions() {
   const toast = useToast()
 
   const [offer, setOffer] = useState(offerBanner?.text || '')
-  const [template, setTemplate] = useState(DEFAULT_TEMPLATE)
+  const [dealId, setDealId] = useState('') // '' = announce the offer text only
+  const [template, setTemplate] = useState(() =>
+    buildTemplate({ withDeal: false, withCoupon: true }),
+  )
   const [couponMode, setCouponMode] = useState('personal') // personal | existing | none
   const [publicCode, setPublicCode] = useState('')
   const [terms, setTerms] = useState(blankCouponForm)
@@ -102,6 +117,17 @@ export default function Promotions() {
   // The shop's own WhatsApp number tells us the country code to assume.
   const countryCode = String(restaurant.whatsapp || '92').replace(/\D/g, '').slice(0, 2) || '92'
   const siteLink = window.location.origin
+
+  // The deal being announced, if any. It drives three things: the {deal} block
+  // in the message, the fallback offer wording, and where {link} points.
+  const selectedDeal = deals.find((d) => String(d.id) === dealId) || null
+
+  // Picking (or clearing) a deal changes the shape of the message, so the
+  // template is rebuilt — same as switching coupon mode does.
+  const pickDeal = (id) => {
+    setDealId(id)
+    setTemplate(buildTemplate({ withDeal: !!id, withCoupon: couponMode !== 'none' }))
+  }
 
   // ---- Recipients ---------------------------------------------------------
   // Registered accounts first, then anyone who has ordered as a guest — they are
@@ -189,21 +215,33 @@ export default function Promotions() {
     return ''
   }
 
+  // Every message carries a link the customer can act on: straight to the deal
+  // when one is attached, otherwise to the menu with the coupon riding along.
+  const linkFor = (code) => buildPromoLink(siteLink, { deal: selectedDeal, code })
+
   const render = (r, code) =>
     template
       .replaceAll('{name}', (r.name || 'there').split(' ')[0])
-      .replaceAll('{offer}', offer || 'We have a special offer for you today!')
+      .replaceAll(
+        '{offer}',
+        offer ||
+          (selectedDeal
+            ? `Don't miss our ${selectedDeal.name} deal!`
+            : 'We have a special offer for you today!'),
+      )
+      .replaceAll('{deal}', dealBlock(selectedDeal))
+      .replaceAll('{price}', selectedDeal ? rs(selectedDeal.price) : '')
       .replaceAll('{code}', code || '—')
       .replaceAll('{expiry}', expiryFor())
       .replaceAll('{shop}', restaurant.name)
-      .replaceAll('{link}', siteLink)
+      .replaceAll('{link}', linkFor(code))
 
   const insert = (token) => setTemplate((t) => `${t}${t.endsWith(' ') ? '' : ' '}${token}`)
 
   // ---- Sending ------------------------------------------------------------
   const validate = () => {
-    if (!offer.trim() && !template.includes('{code}')) {
-      toast.error('Write the offer first')
+    if (!offer.trim() && !selectedDeal && !template.includes('{code}')) {
+      toast.error('Write the offer, or attach a deal to share')
       return false
     }
     if (couponMode === 'existing' && !activeCoupon) {
@@ -267,12 +305,20 @@ export default function Promotions() {
         setIssued(codes)
       }
 
+      // Cloud API template variables must be single-line, so an attached deal is
+      // folded into the offer parameter instead of being sent as its own block.
+      const offerParam =
+        [offer.trim(), selectedDeal && `${selectedDeal.name} — ${rs(selectedDeal.price)}`]
+          .filter(Boolean)
+          .join(' · ') || 'Special offer'
+
       const payload = chosen.map((r) => {
         const code = couponMode === 'personal' ? codes[r.key] : codeFor(r)
         return {
           wa: r.wa,
-          // Positional template variables: {{1}} name, {{2}} offer, {{3}} code.
-          params: [(r.name || 'there').split(' ')[0], offer, code || '—'],
+          // Positional template variables:
+          // {{1}} name, {{2}} offer, {{3}} code, {{4}} link.
+          params: [(r.name || 'there').split(' ')[0], offerParam, code || '—', linkFor(code)],
           text: render(r, code),
         }
       })
@@ -321,6 +367,10 @@ export default function Promotions() {
     ? render(chosen[0], codeFor(chosen[0]))
     : 'Add a customer with a phone number to see the preview.'
 
+  const previewLink = linkFor(
+    chosen[0] ? codeFor(chosen[0]) : couponMode === 'existing' ? activeCoupon?.code : '',
+  )
+
   return (
     <div>
       <div className="mb-6">
@@ -354,6 +404,31 @@ export default function Promotions() {
                 </button>
               )}
             </div>
+
+            <div>
+              <label className="label">Attach a deal (optional)</label>
+              <select className="input" value={dealId} onChange={(e) => pickDeal(e.target.value)}>
+                <option value="">No deal — send the text above only</option>
+                {deals.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {d.name} — {rs(d.price)}
+                    {d.oldPrice ? ` (was ${rs(d.oldPrice)})` : ''}
+                  </option>
+                ))}
+              </select>
+              {selectedDeal ? (
+                <p className="mt-1 text-xs text-charcoal/50">
+                  The message will carry the deal's name, price and description — and the link
+                  opens that deal directly on the site.
+                </p>
+              ) : (
+                deals.length === 0 && (
+                  <p className="mt-1 text-xs text-amber-600">
+                    No deals yet — create one under Deals first.
+                  </p>
+                )
+              )}
+            </div>
           </section>
 
           <section className="card space-y-4 p-5">
@@ -377,7 +452,9 @@ export default function Promotions() {
                   key={o.id}
                   onClick={() => {
                     setCouponMode(o.id)
-                    setTemplate(o.id === 'none' ? NO_COUPON_TEMPLATE : DEFAULT_TEMPLATE)
+                    setTemplate(
+                      buildTemplate({ withDeal: !!dealId, withCoupon: o.id !== 'none' }),
+                    )
                   }}
                   className={`flex items-start gap-3 rounded-xl border-2 p-3 text-left transition ${
                     couponMode === o.id
@@ -443,7 +520,7 @@ export default function Promotions() {
               onChange={(e) => setTemplate(e.target.value)}
             />
             <div className="flex flex-wrap gap-2">
-              {['{name}', '{offer}', '{code}', '{expiry}', '{shop}', '{link}'].map((t) => (
+              {['{name}', '{offer}', '{deal}', '{price}', '{code}', '{expiry}', '{shop}', '{link}'].map((t) => (
                 <button
                   type="button"
                   key={t}
@@ -463,6 +540,15 @@ export default function Promotions() {
                   {preview}
                 </pre>
               </div>
+              <p className="mt-2 text-xs text-charcoal/45">
+                Link they'll tap:{' '}
+                <span className="break-all font-mono text-charcoal/70">{previewLink}</span>
+                {selectedDeal
+                  ? ' — opens the deal, highlighted.'
+                  : couponMode !== 'none'
+                    ? ' — opens the menu with the code already applied at checkout.'
+                    : ''}
+              </p>
             </div>
           </section>
         </div>
@@ -602,8 +688,9 @@ export default function Promotions() {
                         Your approved template's body must use{' '}
                         <code className="rounded bg-black/5 px-1">{'{{1}}'}</code> name,{' '}
                         <code className="rounded bg-black/5 px-1">{'{{2}}'}</code> offer,{' '}
-                        <code className="rounded bg-black/5 px-1">{'{{3}}'}</code> code — the message
-                        box above is used for the manual flow.
+                        <code className="rounded bg-black/5 px-1">{'{{3}}'}</code> code,{' '}
+                        <code className="rounded bg-black/5 px-1">{'{{4}}'}</code> link — the
+                        message box above is used for the manual flow.
                       </p>
                     </div>
                   ) : (

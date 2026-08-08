@@ -1,3 +1,5 @@
+import { useEffect, useMemo, useRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import DealCard from '../components/DealCard.jsx'
 import JoinCta from '../components/JoinCta.jsx'
 import SectionHeading from '../components/SectionHeading.jsx'
@@ -5,6 +7,25 @@ import { useStore } from '../context/StoreContext.jsx'
 
 export default function Deals() {
   const { deals, offerBanner } = useStore()
+  const [searchParams] = useSearchParams()
+
+  // A shared promo link (?deal=…) points at one specific deal. Float it to the
+  // top and ring it, so the customer sees the thing they were messaged about
+  // instead of having to hunt for it in the grid.
+  const sharedId = searchParams.get('deal') || ''
+  const shared = deals.find((d) => String(d.id) === sharedId) || null
+  const sharedRef = useRef(null)
+
+  const ordered = useMemo(
+    () => (shared ? [shared, ...deals.filter((d) => d !== shared)] : deals),
+    [deals, shared],
+  )
+
+  // Deals arrive asynchronously, so scroll once the card is actually mounted.
+  useEffect(() => {
+    if (!shared || !sharedRef.current) return
+    sharedRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  }, [shared])
 
   return (
     <div className="section py-10">
@@ -29,9 +50,27 @@ export default function Deals() {
       </div>
 
       <div className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {deals.map((deal) => (
-          <DealCard key={deal.id} deal={deal} />
-        ))}
+        {ordered.map((deal) => {
+          const isShared = deal === shared
+          return (
+            <div
+              key={deal.id}
+              ref={isShared ? sharedRef : null}
+              className={
+                isShared
+                  ? 'animate-scale-in rounded-3xl ring-4 ring-brand-400 ring-offset-4 ring-offset-cream'
+                  : undefined
+              }
+            >
+              {isShared && (
+                <p className="mb-2 text-center text-xs font-bold uppercase tracking-widest text-brand-600">
+                  ✨ Your offer
+                </p>
+              )}
+              <DealCard deal={deal} />
+            </div>
+          )
+        })}
       </div>
 
       {deals.length === 0 && (

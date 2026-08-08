@@ -6,6 +6,7 @@ import { useStore } from '../context/StoreContext.jsx'
 import { useToast } from '../context/ToastContext.jsx'
 import { rs } from '../utils/format.js'
 import { buildOrderMessage, buildWhatsappLink, sendOrderToWhatsapp } from '../utils/whatsapp.js'
+import { clearPromoCode, readPromoCode } from '../utils/promoLink.js'
 import { Check, User } from '../components/Icons.jsx'
 
 const ORDER_TYPES = [
@@ -82,6 +83,22 @@ export default function Checkout() {
     }
     setPrefilled(true)
   }, [profile, prefilled, areas])
+
+  // A code that arrived on a shared promo link applies itself — nobody should
+  // have to retype something we messaged them. It stays put if it isn't usable
+  // yet (a minimum-order code on a small cart), and simply tries again as the
+  // cart grows; no toast either way, so a stale link never nags the customer.
+  useEffect(() => {
+    if (applied || !subtotal) return
+    const code = readPromoCode()
+    if (!code) return
+    const { discount: found } = validateDiscount(code, subtotal)
+    if (!found) return
+    setCodeInput(found.code)
+    setApplied(found)
+    clearPromoCode()
+    toast.success(`Your offer code ${found.code} is applied 🎉`)
+  }, [applied, subtotal, validateDiscount, toast])
 
   if (count === 0) {
     return (

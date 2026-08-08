@@ -62,6 +62,21 @@ account can only be created from the Supabase dashboard.
   code at all. Includes guest customers (anyone who has ordered by phone),
   live preview, per-recipient progress, and copy tools for broadcast lists.
 
+  **Attach a deal**, and the message carries its name, price and description —
+  and every message ends with a link that lands the customer on the thing they
+  were told about, not just the homepage:
+
+  | What's attached | Where the link goes |
+  | --- | --- |
+  | A deal | `/deals?deal=<id>&code=<CODE>` — that deal, highlighted and scrolled to |
+  | A coupon only | `/menu?code=<CODE>` |
+  | Neither | the homepage |
+
+  The code in the link is remembered for the visit (`sessionStorage`, see
+  `src/utils/promoLink.js`) and **applies itself at checkout** — so the customer
+  never retypes a code the shop already sent them. If the cart is below the
+  coupon's minimum it simply waits and applies once the cart qualifies.
+
   Two ways to send, and the screen shows whichever is available:
 
   - **Send to all at once** — one click, no tapping, via the official WhatsApp
@@ -83,8 +98,10 @@ delivers to the shop's *own* number). Unattended sending needs Meta's official
    `WHATSAPP_PHONE_ID` (optionally `WHATSAPP_TEMPLATE`, `WHATSAPP_LANGUAGE`),
    then redeploy. See `.env.example`.
 5. Get one **marketing template** approved. Its body must use the variables in
-   this order: `{{1}}` customer's first name, `{{2}}` the offer text, `{{3}}` the
-   coupon code. Enter the template's name on the WhatsApp Blast screen.
+   this order: `{{1}}` customer's first name, `{{2}}` the offer text (an attached
+   deal is folded in here, since template variables must be single-line), `{{3}}`
+   the coupon code, `{{4}}` the promo link. Enter the template's name on the
+   WhatsApp Blast screen.
 
 > Meta charges per marketing message, and a template is required for anyone who
 > hasn't messaged the shop in the last 24 hours. The screen also offers plain-text
