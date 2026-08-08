@@ -34,8 +34,15 @@ const fmtDateTime = (d) => {
   }
 }
 
-// Opens a print window for the given HTML, then triggers the print dialog so
-// the user can "Save as PDF". Shared by every invoice type.
+// Opens the invoice in its own window, where a "Print / Save as PDF" button is
+// waiting. Shared by every invoice type.
+//
+// The window is deliberately NOT auto-printed. `window.print()` is a modal,
+// synchronous call that blocks the whole renderer, and a window.open() popup
+// shares its opener's process — so auto-printing froze the site behind a dialog
+// the user often couldn't even see (the popup opens in the background). Now the
+// user reads the invoice and presses print themselves: nothing ever blocks the
+// storefront, and the dialog only appears when it was actually asked for.
 function openPrintWindow(html) {
   const win = window.open('', '_blank')
   if (!win) {
@@ -45,6 +52,9 @@ function openPrintWindow(html) {
   win.document.open()
   win.document.write(html)
   win.document.close()
+  // Bring it to the front, otherwise it can open behind the current tab and
+  // look like the site simply stopped responding.
+  win.focus()
 }
 
 // Shared <style> + print button used by all invoices.
@@ -76,17 +86,14 @@ const INVOICE_STYLE = `
   @media print { body { padding: 12px; } .noprint { display: none; } }
   .noprint { text-align: center; margin-bottom: 20px; }
   .btn { background: #e8622a; color: #fff; border: 0; padding: 10px 22px; border-radius: 8px; font-size: 14px; cursor: pointer; }
+  .hint { margin: 8px 0 0; font-size: 11px; color: #999; }
 `
 
 const printButton = `
   <div class="noprint">
     <button class="btn" onclick="window.print()">🖨️ Print / Save as PDF</button>
+    <p class="hint">Choose “Save as PDF” as the destination to download it.</p>
   </div>`
-
-const autoPrint = `
-  <script>
-    window.onload = function () { setTimeout(function () { window.print(); }, 350); };
-  </script>`
 
 const bizBlock = (restaurant) => `
     <div class="biz">
@@ -196,7 +203,6 @@ export function printSupplierInvoice(supplier, restaurant, balance) {
   </div>
 
   <p class="note">This is a computer-generated statement — ${esc(restaurant.name)}.</p>
-  ${autoPrint}
 </body>
 </html>`
 
@@ -281,7 +287,6 @@ export function printOrderInvoice(order, restaurant) {
   </div>
 
   <p class="note">Thank you for your order! — ${esc(restaurant.name)}</p>
-  ${autoPrint}
 </body>
 </html>`
 
@@ -417,7 +422,6 @@ export function printBusinessReport(business, restaurant, entries, periodLabel =
   </div>
 
   <p class="note">Computer-generated profit &amp; loss report — ${esc(restaurant.name)}.</p>
-  ${autoPrint}
 </body>
 </html>`
 
@@ -512,7 +516,6 @@ export function printExpenseReport(expenses, restaurant, periodLabel = 'All Time
   </div>
 
   <p class="note">Computer-generated expense report — ${esc(restaurant.name)}.</p>
-  ${autoPrint}
 </body>
 </html>`
 
@@ -594,7 +597,6 @@ export function printOrdersReport(orders, restaurant, periodLabel = 'All Time') 
   </div>
 
   <p class="note">Computer-generated sales report — ${esc(restaurant.name)}.</p>
-  ${autoPrint}
 </body>
 </html>`
 
