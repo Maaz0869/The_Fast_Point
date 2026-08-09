@@ -582,6 +582,33 @@ export const RESTAURANT = {
   mapUrl:
     'https://www.google.com/maps/search/?api=1&query=Barikot+Bridge+Daewoo+Stand+Barikot+Swat',
   isOpen: true,
+  // Accounts customers can transfer to. Each one becomes a payment option at
+  // checkout (Cash on Delivery is always the first option). Editable from
+  // Admin → Settings, so the shop can add or change accounts without a deploy.
+  paymentAccounts: [
+    {
+      id: 'easypaisa',
+      method: 'Easypaisa',
+      icon: '📱',
+      bank: '',
+      title: 'Fayaz Ahmed',
+      number: '0346 9559380',
+      iban: 'PK35TMFB0000000027265728',
+      branch: '',
+      note: 'IBAN account title: THE SNACK HUT',
+    },
+    {
+      id: 'meezan',
+      method: 'Bank Transfer',
+      icon: '🏦',
+      bank: 'Meezan Bank',
+      title: 'The Snack Hut',
+      number: '26990114582799',
+      iban: 'PK21MEZN0026990114582799',
+      branch: 'Barikot Branch, Swat',
+      note: '',
+    },
+  ],
   hours: [{ day: 'Every day', time: '11:00 AM – 2:00 AM' }],
   socials: {
     facebook: 'https://facebook.com',
