@@ -184,6 +184,15 @@ command, SPA rewrites so deep links like `/menu` and `/admin` survive a refresh
 functions, long-lived caching for hashed assets, and a few baseline security
 headers.
 
+`sitemap.xml` is generated during the build (see `emitSitemap` in
+`vite.config.js`) rather than kept as a file, because a sitemap may only contain
+absolute URLs and the domain isn't known until deploy time. It lists the five
+public pages — `/`, `/menu`, `/deals`, `/contact`, `/track` — and the build also
+appends a `Sitemap:` line to `robots.txt`. Everything private (`/admin`,
+`/account`, `/checkout`, `/order/`) stays out of both, and if no domain is
+available the sitemap is skipped with a build warning instead of shipping
+invalid relative URLs.
+
 1. Push the repo to GitHub (already done).
 2. On [vercel.com](https://vercel.com), **Add New → Project** and import this repo.
 3. Vercel auto-detects Vite — no build settings to change
@@ -197,7 +206,7 @@ below simply switches on the feature next to it.
 
 | Variable | Needed for |
 | --- | --- |
-| `VITE_SITE_URL` | **Recommended.** Your domain, e.g. `https://thesnackhut.vercel.app`. Makes the WhatsApp/Facebook link-preview card show the logo — without it the preview still works, just plainer. |
+| `VITE_SITE_URL` | A **custom domain**, e.g. `https://thesnackhut.com`. On a plain `*.vercel.app` deploy you can leave this unset — the build reads Vercel's own `VERCEL_PROJECT_PRODUCTION_URL`. It supplies the absolute URLs that the link-preview image and `sitemap.xml` both need. |
 | `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` | Pointing at a different Supabase project than the built-in default. |
 | `RESEND_API_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | Emailing each order to the shop. |
 | `ORDER_EMAIL_TO`, `ORDER_EMAIL_FROM`, `ORDER_EMAIL_SECRET` | Overriding where order emails go, who they come from, and the database-webhook secret. |
